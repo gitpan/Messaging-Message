@@ -8,6 +8,8 @@ use Messaging::Message;
 use POSIX qw(:fcntl_h);
 use Test::More;
 
+eval { require Compress::Zlib };
+
 sub contents ($) {
     my($path) = @_;
     my($fh, $contents, $done);
@@ -59,9 +61,14 @@ sub test_one ($) {
     SKIP : {
 	skip("Compress::Zlib is not installed", 1)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*zlib\b/ and
-	        not $Messaging::Message::_ModuleVersion{"Compress::Zlib"};
-	$msg = Messaging::Message->deserialize_ref(\$tmp);
-	is(md5_msg($msg), $md5, $path);
+	    not $Compress::Zlib::VERSION;
+	eval { $msg = Messaging::Message->deserialize_ref(\$tmp) };
+	if ($msg) {
+	    is(md5_msg($msg), $md5, $path);
+	} else {
+	    $@ =~ s/\s*$//;
+	    is($@, "", $path);
+	}
     }
 }
 

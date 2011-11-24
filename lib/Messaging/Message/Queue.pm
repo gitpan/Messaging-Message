@@ -13,23 +13,15 @@
 package Messaging::Message::Queue;
 use strict;
 use warnings;
-our $VERSION  = "0.5";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.2 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.6";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
-use Messaging::Message qw(_fatal);
+use Messaging::Message qw(_fatal _require);
 use Params::Validate qw(validate_with :types);
-
-#
-# global variables
-#
-
-our(
-    %_ModuleVersion,		# versions of the successfully loaded modules
-);
 
 #
 # constructor
@@ -45,13 +37,7 @@ sub new : method {
         allow_extra => 1,
     );
     $mqc = $class . "::" . $option{type};
-    unless (exists($_ModuleVersion{$mqc})) {
-	eval("require $mqc");
-	no strict "refs";
-	$_ModuleVersion{$mqc} = $@ ? undef : ${ $mqc . "::VERSION" };
-    }
-    _fatal("invalid message queue type: %s (%s not available)", $option{type}, $mqc)
-	unless $_ModuleVersion{$mqc};
+    _require($mqc);
     delete($option{type});
     return($mqc->new(\%option));
 }

@@ -8,9 +8,9 @@ The modules include a transport independent message abstraction, a
 versatile message generator and several message queues/spools to
 locally store messages.
 
-An Python implementation of the same abstractions and queue algorithms
-will be provided to allow components written in both languages to work
-together seamlessly.
+A Python implementation of the same messaging abstractions is
+available at http://pypi.python.org/pypi/messaging/ so messaging
+components can be written in different programming languages.
 
 INSTALLATION
 
@@ -27,6 +27,7 @@ following optional modules do bring extra functionality:
     Compress::Zlib - allows body (de)compression when (de)serializing
     Directory::Queue - required by Messaging::Message::Queue::DQ
     Directory::Queue::Simple - required by Messaging::Message::Queue::DQS
+    Net::STOMP::Client - allows interaction with STOMP messaging brokers
 
 SUPPORT AND DOCUMENTATION
 

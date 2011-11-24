@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use charnames qw(:full);
 use Messaging::Message;
-use Test::More tests => 74;
+use Test::More tests => 77;
 
 our($count, $binstr, $unistr);
 
@@ -156,6 +156,8 @@ test_ds(q/{"header":{"id":"1"}}/,                   Messaging::Message->new(head
 test_ds(q/{"body":"aGVsbG8="}/,                     Messaging::Message->new(body => "aGVsbG8="));
 test_ds(q/{"body":"aGVsbG8=","encoding":""}/,       Messaging::Message->new(body => "aGVsbG8="));
 test_ds(q/{"body":"aGVsbG8=","encoding":"base64"}/, Messaging::Message->new(body => "hello"));
+test_ds(q/{"body":"aG9sYQ==","encoding":"base64"}/, Messaging::Message->new(body => "hola"));
+test_ds(q/{"body":"PT09","encoding":"base64"}/,     Messaging::Message->new(body => "==="));
 
 #
 # zlib
@@ -197,7 +199,8 @@ foreach (
     q/{"text":false,"body":"test","header":123}/,         # invalid header
     q/{"encoding":1,"body":"test"}/,                      # invalid encoding
     q/{"encoding":"base64","body":"1"}/,                  # invalid encoded body (padding)
-    q/{"encoding":"base64","body":"1*2:3#4"}/,            # invalid encoded body (chars)
+    q/{"encoding":"base64","body":"1*2:3#4+"}/,           # invalid encoded body (chars)
+    q/{"encoding":"base64","body":"AAAA:-))"}/,           # invalid encoded body (noise)
     q/{"text":true,"body":"test","header":{},"extra":0}/, # unexpected extra
     ) {
     test_val("deserialize($_)", sub { Messaging::Message->deserialize($_) });

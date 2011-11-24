@@ -13,8 +13,8 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "0.5";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.8 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.6";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
 
 #
 # export control
@@ -24,7 +24,7 @@ use Exporter;
 our(@ISA, @EXPORT, @EXPORT_OK);
 @ISA = qw(Exporter);
 @EXPORT = qw();
-@EXPORT_OK = qw(_fatal);
+@EXPORT_OK = qw(_fatal _require);
 
 #
 # used modules
@@ -40,7 +40,7 @@ use Params::Validate qw(validate validate_pos :types);
 #
 
 our(
-    %_ModuleVersion,		# versions of the successfully loaded modules
+    %_LoadedModule,		# hash of successfully loaded modules
     %_ValidateSpec,		# specifications for validate()
     %_ValidateType,		# types for validate()
     $_JSON,			# JSON object
@@ -66,13 +66,6 @@ $_ValidateType{json_bool} = {
     },
 };
 
-#
-# optional modules
-#
-
-eval { require Compress::Zlib };
-$_ModuleVersion{"Compress::Zlib"} = $Compress::Zlib::VERSION unless $@;
-
 #+++############################################################################
 #                                                                              #
 # helper functions                                                             #
@@ -89,6 +82,23 @@ sub _fatal ($@) {
     $message = sprintf($message, @arguments) if @arguments;
     $message =~ s/\s+$//;
     die(caller() . ": $message\n");
+}
+
+#
+# make sure a module is loaded
+#
+
+sub _require ($) {
+    my($module) = @_;
+
+    return if $_LoadedModule{$module};
+    eval("require $module");
+    if ($@) {
+	$@ =~ s/\s+at\s.+?\sline\s+\d+\.?$//;
+	_fatal("failed to load %s: %s", $module, $@);
+    } else {
+	$_LoadedModule{$module} = 1;
+    }
 }
 
 #
@@ -117,7 +127,7 @@ sub _eval ($&@) {
 sub _maybe_base64_encode ($) {
     my($object) = @_;
 
-    return unless $object->{body} =~ /[^\x20-\x7e]/;
+    return unless $object->{body} =~ /[\x00-\x1f\x7f-\xff]/;
     # only if it contains more than printable ASCII characters
     _eval("Base64 encoding", sub {
 	$object->{body} = encode_base64($object->{body}, "");
@@ -129,8 +139,8 @@ sub _maybe_utf8_encode ($) {
     my($object) = @_;
     my($tmp);
 
-    return unless $object->{body} =~ /[^[:ascii:]]/;
-    # only if it contains ASCII characters...
+    return unless $object->{body} =~ /[\x80-\xff]/;
+    # only if it contains more than ASCII characters...
     _eval("UTF-8 encoding", sub {
 	$tmp = Encode::encode("UTF-8", $object->{body}, Encode::FB_CROAK|Encode::LEAVE_SRC);
     });
@@ -310,10 +320,7 @@ sub jsonify : method {
     %option = validate(@_, $_ValidateSpec{jsonify}) if @_;
     $compression = $option{compression} || "";
     # check compression availability
-    if ($compression eq "zlib") {
-	_fatal("unsupported compression: zlib (missing Compress::Zlib module)")
-	    unless $_ModuleVersion{"Compress::Zlib"};
-    }
+    _require("Compress::Zlib") if $compression eq "zlib";
     # build the JSON object
     $object{text} = JSON::true if $self->{text};
     $object{header} = $self->{header} if keys(%{ $self->{header} });
@@ -362,7 +369,7 @@ $_ValidateSpec{dejsonify} = {
 };
 
 sub dejsonify : method {
-    my($class, $object, $encoding, $self, $tmp);
+    my($class, $object, $encoding, $self, $tmp, $len);
 
     $class = shift(@_);
     validate_pos(@_, { type => HASHREF })
@@ -372,10 +379,7 @@ sub dejsonify : method {
     $encoding = $object->{encoding} || "";
     _fatal("invalid encoding: %s", $encoding)
 	unless $encoding eq "" or "${encoding}+" =~ /^((base64|utf8|zlib)\+)+$/;
-    if ($encoding =~ /zlib/) {
-	_fatal("unsupported compression: zlib (missing Compress::Zlib module)")
-	    unless $_ModuleVersion{"Compress::Zlib"};
-    }
+    _require("Compress::Zlib") if $encoding =~ /zlib/;
     # construct the message
     $self = $class->new();
     $self->{text} = 1 if $object->{text};
@@ -383,11 +387,16 @@ sub dejsonify : method {
     if (exists($object->{body})) {
 	$tmp = $object->{body};
 	if ($encoding =~ /base64/) {
-	    # body has been Base64 encoded
-	    _fatal("invalid Base64 data: %s", $tmp) unless $tmp =~ /^[A-Za-z0-9\+\/]+={0,3}$/;
+	    # body has been Base64 encoded, compute length to detect unexpected characters
+	    # (this is because MIME::Base64 silently ignores them)
+	    $len = length($tmp);
+	    _fatal("invalid Base64 data: %s", $object->{body}) if $len % 4;
+	    $len = $len * 3 / 4;
+	    $len -= substr($tmp, -2) =~ tr/=/=/;
 	    _eval("Base64 decoding", sub {
 		$tmp = decode_base64($tmp);
 	    });
+	    _fatal("invalid Base64 data: %s", $object->{body}) unless $len == length($tmp);
 	}
 	if ($encoding =~ /zlib/) {
 	    # body has been Zlib compressed
@@ -399,7 +408,7 @@ sub dejsonify : method {
 	    # body has been UTF-8 encoded
 	    _eval("UTF-8 decoding", sub {
 		$tmp = Encode::decode("UTF-8", $tmp, Encode::FB_CROAK|Encode::LEAVE_SRC);
-	    }) if $tmp =~ /[^[:ascii:]]/;
+	    }) if $tmp =~ /[\x80-\xff]/;
 	}
 	$self->{body_ref} = \$tmp;
     }
@@ -482,7 +491,7 @@ sub serialize : method {
 
     $self = shift(@_);
     $tmp = $self->stringify_ref(@_);
-    return($$tmp) unless $$tmp =~ /[^[:ascii:]]/;
+    return($$tmp) unless $$tmp =~ /[\x80-\xff]/;
     _eval("UTF-8 encoding", sub {
 	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK|Encode::LEAVE_SRC);
     });
@@ -494,7 +503,7 @@ sub serialize_ref : method {
 
     $self = shift(@_);
     $tmp = $self->stringify_ref(@_);
-    return($tmp) unless $$tmp =~ /[^[:ascii:]]/;
+    return($tmp) unless $$tmp =~ /[\x80-\xff]/;
     _eval("UTF-8 encoding", sub {
 	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK|Encode::LEAVE_SRC);
     });
@@ -511,7 +520,7 @@ sub deserialize : method {
     $class = shift(@_);
     validate_pos(@_, { type => SCALAR })
 	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
-    return($class->destringify($_[0])) unless $_[0] =~ /[^[:ascii:]]/;
+    return($class->destringify($_[0])) unless $_[0] =~ /[\x80-\xff]/;
     _eval("UTF-8 decoding", sub {
 	$tmp = Encode::decode("UTF-8", $_[0], Encode::FB_CROAK|Encode::LEAVE_SRC);
     }, @_);
@@ -524,7 +533,7 @@ sub deserialize_ref : method {
     $class = shift(@_);
     validate_pos(@_, { type => SCALARREF })
 	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
-    return($class->destringify_ref($_[0])) unless ${ $_[0] } =~ /[^[:ascii:]]/;
+    return($class->destringify_ref($_[0])) unless ${ $_[0] } =~ /[\x80-\xff]/;
     _eval("UTF-8 decoding", sub {
 	$tmp = Encode::decode("UTF-8", ${ $_[0] }, Encode::FB_CROAK|Encode::LEAVE_SRC);
     }, @_);

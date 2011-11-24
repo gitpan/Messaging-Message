@@ -13,8 +13,6 @@ t/1message.t
 t/2generator.t
 t/2queue.t
 t/2serialize.t
-t/2serialize.t.d/1d62edfc0c4654cb213f7d721a2e7437.0
-t/2serialize.t.d/1d62edfc0c4654cb213f7d721a2e7437.1
 t/2serialize.t.d/1d9d0faf7130b6c7ff996a8d94f424a0.1
 t/2serialize.t.d/1d9d0faf7130b6c7ff996a8d94f424a0.2
 t/2serialize.t.d/1d9d0faf7130b6c7ff996a8d94f424a0.3
@@ -42,6 +40,9 @@ t/2serialize.t.d/e320488cc32403999f01da8164a6aee0.1
 t/2serialize.t.d/e320488cc32403999f01da8164a6aee0.2
 t/2serialize.t.d/f0fedf2793c7e74392fd6063308e49db.0
 t/2serialize.t.d/f0fedf2793c7e74392fd6063308e49db.1
+t/2serialize.t.d/f4b41f7ac77257bf9dfa151e87675878.1
+t/2serialize.t.d/f4b41f7ac77257bf9dfa151e87675878.2
+t/2serialize.t.d/f4b41f7ac77257bf9dfa151e87675878.3
 t/2serialize.t.d/f5dd5c46cd0ba94ad0b91dbf13cc56ce
 t/2serialize.t.d/ff5ef66a72f260614378357c967a32af.0
 t/2serialize.t.d/ff5ef66a72f260614378357c967a32af.1

@@ -7,17 +7,24 @@ my(%param, $emv, $name);
 %param = (
     NAME                   => 'Messaging::Message',
     AUTHOR                 => 'Lionel Cons <lionel.cons@cern.ch>',
-    VERSION                => '0.5',
-    ABSTRACT               => 'Message related modules',
+    VERSION                => '0.6',
+    ABSTRACT               => 'message related modules',
     LICENSE                => 'perl',
     PL_FILES               => {},
     BUILD_REQUIRES => {
+        'File::Temp'       => 0,
+        # optional: Pod::Coverage
         'POSIX'            => 0,
         'Test::More'       => 0,
+        # optional: Test::Pod
+        # optional: Test::Pod::Coverage
     },
     PREREQ_PM => {
+        # optional: Compress::Zlib
         'Digest::MD5'      => 0,
+        # optional: Directory::Queue
         'Encode'           => 0,
+        'Exporter'         => 0,
         'JSON'             => 0,
         'MIME::Base64'     => 0,
         'Params::Validate' => 0,

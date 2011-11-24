@@ -13,8 +13,8 @@
 package Messaging::Message::Queue::DQ;
 use strict;
 use warnings;
-our $VERSION  = "0.5";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.6";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
@@ -26,14 +26,8 @@ our @ISA = qw(Directory::Queue);
 # used modules
 #
 
-use Messaging::Message qw(_fatal);
+use Messaging::Message qw(_fatal _require);
 use Params::Validate qw(validate_with validate_pos :types);
-
-#
-# optional modules
-#
-
-eval { require Directory::Queue };
 
 #
 # constructor
@@ -42,8 +36,7 @@ eval { require Directory::Queue };
 sub new : method {
     my($class, %option, $self);
 
-    _fatal("missing module: Directory::Queue")
-	unless $Directory::Queue::VERSION;
+    _require("Directory::Queue");
     $class = shift(@_);
     %option = validate_with(
         params      => \@_,
@@ -152,7 +145,8 @@ following methods are available:
 
 =item new(OPTIONS)
 
-return a new Messaging::Message::Queue::DQ object (class method)
+return a new Messaging::Message::Queue::DQ object (class method),
+the OPTIONS are the ones for Directory::Queue->new()
 
 =item add_message(MESSAGE)
 

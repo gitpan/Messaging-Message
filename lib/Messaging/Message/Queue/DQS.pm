@@ -13,8 +13,8 @@
 package Messaging::Message::Queue::DQS;
 use strict;
 use warnings;
-our $VERSION  = "0.5";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.6";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
@@ -26,14 +26,8 @@ our @ISA = qw(Directory::Queue::Simple);
 # used modules
 #
 
-use Messaging::Message qw(_fatal);
+use Messaging::Message qw(_fatal _require);
 use Params::Validate qw(validate_with validate_pos :types);
-
-#
-# optional modules
-#
-
-eval { require Directory::Queue::Simple };
 
 #
 # constructor
@@ -42,8 +36,7 @@ eval { require Directory::Queue::Simple };
 sub new : method {
     my($class, %option, $compression, $self);
 
-    _fatal("missing module: Directory::Queue::Simple")
-	unless $Directory::Queue::Simple::VERSION;
+    _require("Directory::Queue::Simple");
     $class = shift(@_);
     %option = validate_with(
         params      => \@_,
@@ -137,7 +130,9 @@ the following methods are available:
 
 =item new(OPTIONS)
 
-return a new Messaging::Message::Queue::DQS object (class method)
+return a new Messaging::Message::Queue::DQS object (class method),
+the OPTIONS are the ones for Directory::Queue::Simple->new() with the
+addition of C<compression>, like for Messaging::Message->jsonify()
 
 =item add_message(MESSAGE)
 
