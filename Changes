@@ -1,5 +1,9 @@
 Revision history for Messaging-Message:
 
+0.7	Fri Dec  2 2011
+	* Take advantage of string access by refrence in Directory::Queue.
+	* Allow \t, \n and \r in non Base64 encoded bodies.
+
 0.6	Thu Nov 24 2011
 	* Code, documentation and packaging cleanup.
 	* Improved speed.

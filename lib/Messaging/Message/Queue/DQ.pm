@@ -13,8 +13,8 @@
 package Messaging::Message::Queue::DQ;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
@@ -45,8 +45,8 @@ sub new : method {
     );
     $option{schema} = {
 	header => "table",
-	binary => "binary?",
-	text   => "string?",
+	binary => "binary*?",
+	text   => "string*?",
     };
     $self = Directory::Queue->new(%option);
     bless($self, $class);
@@ -64,7 +64,7 @@ sub add_message : method {
     validate_pos(@_, { isa => "Messaging::Message" });
     $msg = shift(@_);
     $data{header} = $msg->header();
-    $data{$msg->text() ? "text" : "binary"} = $msg->body();
+    $data{$msg->text() ? "text" : "binary"} = $msg->body_ref();
     return($self->add(\%data));
 }
 
@@ -82,10 +82,10 @@ sub get_message : method {
     $msg = Messaging::Message->new();
     $msg->header($data->{header}) if keys(%{ $data->{header} });
     if (exists($data->{text})) {
-        $msg->body_ref(\$data->{text});
+        $msg->body_ref($data->{text});
         $msg->text(1);
     } elsif (exists($data->{binary})) {
-        $msg->body_ref(\$data->{binary});
+        $msg->body_ref($data->{binary});
         $msg->text(0);
     }
     return($msg);

@@ -13,8 +13,8 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 #
 # export control
@@ -127,8 +127,8 @@ sub _eval ($&@) {
 sub _maybe_base64_encode ($) {
     my($object) = @_;
 
-    return unless $object->{body} =~ /[\x00-\x1f\x7f-\xff]/;
-    # only if it contains more than printable ASCII characters
+    return unless $object->{body} =~ /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]/;
+    # only if it contains more than printable ASCII characters (plus \t \n \r)
     _eval("Base64 encoding", sub {
 	$object->{body} = encode_base64($object->{body}, "");
     });
