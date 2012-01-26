@@ -1,8 +1,8 @@
 #+##############################################################################
 #                                                                              #
-# File: Messaging/Message/Queue/DQ.pm                                          #
+# File: Messaging/Message/Queue/DQN.pm                                         #
 #                                                                              #
-# Description: abstraction of a Directory::Queue message queue                 #
+# Description: abstraction of a Directory::Queue::Normal message queue         #
 #                                                                              #
 #-##############################################################################
 
@@ -10,17 +10,17 @@
 # module definition
 #
 
-package Messaging::Message::Queue::DQ;
+package Messaging::Message::Queue::DQN;
 use strict;
 use warnings;
-our $VERSION  = "0.7";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.2 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
 #
 
-our @ISA = qw(Directory::Queue);
+our @ISA = qw(Directory::Queue::Normal);
 
 #
 # used modules
@@ -36,7 +36,7 @@ use Params::Validate qw(validate_with validate_pos :types);
 sub new : method {
     my($class, %option, $self);
 
-    _require("Directory::Queue");
+    _require("Directory::Queue::Normal");
     $class = shift(@_);
     %option = validate_with(
         params      => \@_,
@@ -48,7 +48,7 @@ sub new : method {
 	binary => "binary*?",
 	text   => "string*?",
     };
-    $self = Directory::Queue->new(%option);
+    $self = Directory::Queue::Normal->new(%option);
     bless($self, $class);
     return($self);
 }
@@ -97,15 +97,15 @@ __DATA__
 
 =head1 NAME
 
-Messaging::Message::Queue::DQ - abstraction of a Directory::Queue message queue
+Messaging::Message::Queue::DQN - abstraction of a Directory::Queue::Normal message queue
 
 =head1 SYNOPSIS
 
   use Messaging::Message;
-  use Messaging::Message::Queue::DQ;
+  use Messaging::Message::Queue::DQN;
 
   # create a message queue
-  $mq = Messaging::Message::Queue::DQ->new(path => "/some/where");
+  $mq = Messaging::Message::Queue::DQN->new(path => "/some/where");
 
   # add a message to the queue
   $msg = Messaging::Message->new(body => "hello world");
@@ -122,10 +122,11 @@ Messaging::Message::Queue::DQ - abstraction of a Directory::Queue message queue
 =head1 DESCRIPTION
 
 This module provides an abstraction of a message queue. It derives
-from the L<Directory::Queue> module that provides a generic
-directory-based queue.
+from the L<Directory::Queue::Normal> module that provides a generic
+directory based queue.
 
-It uses the following Directory::Queue schema to store a message:
+It uses the following Directory::Queue::Normal schema to store a
+message:
 
   $schema = {
       header => "table",
@@ -138,15 +139,15 @@ is stored either as a text or binary string.
 
 =head1 METHODS
 
-In addition to the methods inherited from L<Directory::Queue>, the
-following methods are available:
+In addition to the methods inherited from L<Directory::Queue::Normal>,
+the following methods are available:
 
 =over
 
 =item new(OPTIONS)
 
-return a new Messaging::Message::Queue::DQ object (class method),
-the OPTIONS are the ones for Directory::Queue->new()
+return a new Messaging::Message::Queue::DQN object (class method),
+the OPTIONS are the ones for Directory::Queue::Normal->new()
 
 =item add_message(MESSAGE)
 
@@ -162,7 +163,7 @@ return a Messaging::Message object
 
 =head1 SEE ALSO
 
-L<Directory::Queue>,
+L<Directory::Queue::Normal>,
 L<Messaging::Message>,
 L<Messaging::Message::Queue>.
 
@@ -170,4 +171,4 @@ L<Messaging::Message::Queue>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2011
+Copyright CERN 2011-2012

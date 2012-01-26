@@ -25,8 +25,9 @@ In addition to the mandatory modules listed in Makefile.PL, the
 following optional modules do bring extra functionality:
 
     Compress::Zlib - allows body (de)compression when (de)serializing
-    Directory::Queue - required by Messaging::Message::Queue::DQ
+    Directory::Queue::Normal - required by Messaging::Message::Queue::DQN
     Directory::Queue::Simple - required by Messaging::Message::Queue::DQS
+    Directory::Queue::Null - required by Messaging::Message::Queue::NULL
     Net::STOMP::Client - allows interaction with STOMP messaging brokers
 
 SUPPORT AND DOCUMENTATION
@@ -37,12 +38,13 @@ perldoc command.
     perldoc Messaging::Message
     perldoc Messaging::Message::Generator
     perldoc Messaging::Message::Queue
-    perldoc Messaging::Message::Queue::DQ
+    perldoc Messaging::Message::Queue::DQN
     perldoc Messaging::Message::Queue::DQS
+    perldoc Messaging::Message::Queue::NULL
 
 LICENSE AND COPYRIGHT
 
-Copyright (C) 2011 CERN
+Copyright (C) 2011-2012 CERN
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published

@@ -13,8 +13,8 @@
 package Messaging::Message::Queue::DQS;
 use strict;
 use warnings;
-our $VERSION  = "0.7";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
@@ -116,7 +116,7 @@ Messaging::Message::Queue::DQS - abstraction of a Directory::Queue::Simple messa
 
 This module provides an abstraction of a message queue. It derives
 from the L<Directory::Queue::Simple> module that provides a generic
-directory-based queue.
+directory based queue.
 
 It simply stores the serialized message (with optional compression) as
 a Directory::Queue::Simple element.

@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use charnames qw(:full);
-use Test::More tests => 16;
+use Test::More tests => 17;
 
 use Messaging::Message;
 use Messaging::Message::Queue;
@@ -39,18 +39,33 @@ sub test_q ($) {
     is($mq->count(), 0, "count (2)");
 }
 
+sub test_null ($) {
+    my($mq) = @_;
+    my($msg);
+
+    $msg = Messaging::Message->new();
+    $mq->add_message($msg);
+    is($mq->count(), 0, "count");
+}
+
 $tmpdir = tempdir(CLEANUP => 1);
 $binstr = join("", map(chr($_ ^ 123), 0 .. 255));
 $unistr = "[Déjà Vu] sigma=\N{GREEK SMALL LETTER SIGMA} \N{EM DASH} smiley=\x{263a}";
 
 SKIP : {
-    eval { require Directory::Queue };
-    skip("Directory::Queue is not installed", 8) if $@;
-    test_q(Messaging::Message::Queue->new(type => "DQ",  path => "$tmpdir/1"));
+    eval { require Directory::Queue::Normal };
+    skip("Directory::Queue::Normal is not installed", 8) if $@;
+    test_q(Messaging::Message::Queue->new(type => "DQN",  path => "$tmpdir/1"));
 }
 
 SKIP : {
     eval { require Directory::Queue::Simple };
     skip("Directory::Queue::Simple is not installed", 8) if $@;
     test_q(Messaging::Message::Queue->new(type => "DQS",  path => "$tmpdir/2"));
+}
+
+SKIP : {
+    eval { require Directory::Queue::Null };
+    skip("Directory::Queue::Null is not installed", 1) if $@;
+    test_null(Messaging::Message::Queue->new(type => "NULL"));
 }

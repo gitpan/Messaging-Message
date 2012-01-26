@@ -1,5 +1,9 @@
 Revision history for Messaging-Message:
 
+0.8	Thu Jan 26 2012
+	* Ported to the new Directory::Queue 1.5.
+	* Added a "NULL" message queue type based on Directory::Queue::Null.
+
 0.7	Fri Dec  2 2011
 	* Take advantage of string access by refrence in Directory::Queue.
 	* Allow \t, \n and \r in non Base64 encoded bodies.

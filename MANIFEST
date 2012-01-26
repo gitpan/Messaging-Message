@@ -7,8 +7,9 @@ VERSION
 lib/Messaging/Message.pm
 lib/Messaging/Message/Generator.pm
 lib/Messaging/Message/Queue.pm
-lib/Messaging/Message/Queue/DQ.pm
+lib/Messaging/Message/Queue/DQN.pm
 lib/Messaging/Message/Queue/DQS.pm
+lib/Messaging/Message/Queue/NULL.pm
 t/1message.t
 t/2generator.t
 t/2queue.t

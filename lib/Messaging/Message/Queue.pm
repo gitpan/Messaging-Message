@@ -13,8 +13,8 @@
 package Messaging::Message::Queue;
 use strict;
 use warnings;
-our $VERSION  = "0.7";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.4 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -63,7 +63,7 @@ Messaging::Message::Queue - abstraction of a message queue
 This module provides an abstraction of a message queue. Its only
 purpose is to offer a unified method to create a new queue. The
 functionality is implemented in child modules such as
-L<Messaging::Message::Queue::DQ>.
+L<Messaging::Message::Queue::DQN>.
 
 The only available method is:
 
@@ -79,11 +79,12 @@ queue (which is the name of the child class), see above
 =head1 SEE ALSO
 
 L<Messaging::Message>,
-L<Messaging::Message::Queue::DQ>,
-L<Messaging::Message::Queue::DQS>.
+L<Messaging::Message::Queue::DQN>,
+L<Messaging::Message::Queue::DQS>,
+L<Messaging::Message::Queue::NULL>.
 
 =head1 AUTHOR
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2011
+Copyright CERN 2011-2012
