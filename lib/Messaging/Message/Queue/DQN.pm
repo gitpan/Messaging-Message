@@ -13,14 +13,14 @@
 package Messaging::Message::Queue::DQN;
 use strict;
 use warnings;
-our $VERSION  = "0.8";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.2 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.9";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
 #
 
-our @ISA = qw(Directory::Queue::Normal);
+our @ISA = qw(Messaging::Message::Queue Directory::Queue::Normal);
 
 #
 # used modules

@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use charnames qw(:full);
-use Test::More tests => 17;
+use Test::More tests => 23;
 
 use Messaging::Message;
 use Messaging::Message::Queue;
@@ -28,6 +28,8 @@ sub test_q ($) {
     my($mq) = @_;
     my($elt);
 
+    ok($mq->isa("Messaging::Message::Queue"), "$mq isa(Messaging::Message::Queue)");
+    ok($mq->isa("Messaging::Message::Queue"), "$mq isa(Directory::Queue)");
     test_m($mq, Messaging::Message->new());
     test_m($mq, Messaging::Message->new(body => $binstr, text => 0));
     test_m($mq, Messaging::Message->new(body_ref => \$unistr, header => { $unistr => $unistr }, text => 1));
@@ -43,6 +45,8 @@ sub test_null ($) {
     my($mq) = @_;
     my($msg);
 
+    ok($mq->isa("Messaging::Message::Queue"), "$mq isa(Messaging::Message::Queue)");
+    ok($mq->isa("Messaging::Message::Queue"), "$mq isa(Directory::Queue)");
     $msg = Messaging::Message->new();
     $mq->add_message($msg);
     is($mq->count(), 0, "count");
@@ -54,18 +58,18 @@ $unistr = "[Déjà Vu] sigma=\N{GREEK SMALL LETTER SIGMA} \N{EM DASH} smiley=\x{26
 
 SKIP : {
     eval { require Directory::Queue::Normal };
-    skip("Directory::Queue::Normal is not installed", 8) if $@;
+    skip("Directory::Queue::Normal is not installed", 10) if $@;
     test_q(Messaging::Message::Queue->new(type => "DQN",  path => "$tmpdir/1"));
 }
 
 SKIP : {
     eval { require Directory::Queue::Simple };
-    skip("Directory::Queue::Simple is not installed", 8) if $@;
+    skip("Directory::Queue::Simple is not installed", 10) if $@;
     test_q(Messaging::Message::Queue->new(type => "DQS",  path => "$tmpdir/2"));
 }
 
 SKIP : {
     eval { require Directory::Queue::Null };
-    skip("Directory::Queue::Null is not installed", 1) if $@;
+    skip("Directory::Queue::Null is not installed", 3) if $@;
     test_null(Messaging::Message::Queue->new(type => "NULL"));
 }

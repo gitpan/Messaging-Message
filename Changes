@@ -1,5 +1,8 @@
 Revision history for Messaging-Message:
 
+0.9	Thu Feb 23 2012
+	* All message queues now inherit from Messaging::Message::Queue.
+
 0.8	Thu Jan 26 2012
 	* Ported to the new Directory::Queue 1.5.
 	* Added a "NULL" message queue type based on Directory::Queue::Null.

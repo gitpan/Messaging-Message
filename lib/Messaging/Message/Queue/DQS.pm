@@ -13,14 +13,14 @@
 package Messaging::Message::Queue::DQS;
 use strict;
 use warnings;
-our $VERSION  = "0.8";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.9";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.8 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
 #
 
-our @ISA = qw(Directory::Queue::Simple);
+our @ISA = qw(Messaging::Message::Queue Directory::Queue::Simple);
 
 #
 # used modules
@@ -156,4 +156,4 @@ L<Messaging::Message::Queue>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2011
+Copyright CERN 2011-2012

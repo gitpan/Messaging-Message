@@ -7,7 +7,7 @@ my(%param, $emv, $name);
 %param = (
     NAME                   => 'Messaging::Message',
     AUTHOR                 => 'Lionel Cons <lionel.cons@cern.ch>',
-    VERSION                => '0.8',
+    VERSION                => '0.9',
     ABSTRACT               => 'message related modules',
     LICENSE                => 'perl',
     PL_FILES               => {},
