@@ -13,8 +13,8 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "1.0";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.13 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.14 $ =~ /(\d+)\.(\d+)/);
 
 #
 # export control
@@ -41,11 +41,19 @@ use Params::Validate qw(validate validate_pos :types);
 
 our(
     %_LoadedModule,		# hash of successfully loaded modules
+    %_CompressionModule,	# known compression modules
+    $_CompressionAlgos,		# known compression algorithms
     %_ValidateSpec,		# specifications for validate()
     %_ValidateType,		# types for validate()
     $_JSON,			# JSON object
 );
 
+%_CompressionModule = (
+    "lz4"    => "LZ4",
+    "snappy" => "Snappy",
+    "zlib"   => "Zlib",
+);
+$_CompressionAlgos = join("|", sort(keys(%_CompressionModule)));
 $_JSON = JSON->new();
 
 #
@@ -150,21 +158,16 @@ sub _maybe_utf8_encode ($) {
     $object->{encoding}{utf8}++;
 }
 
-sub _maybe_zlib_compress ($) {
-    my($object) = @_;
-    my($len, $tmp);
+sub _do_compress ($$) {
+    my($object, $algo) = @_;
+    my($compress, $tmp);
 
-    $len = length($object->{body});
-    return unless $len > 255;
-    # only if it is long enough...
-    _eval("Zlib compression", sub {
-	$tmp = Compress::Zlib::compress(\$object->{body});
+    $compress = \&{"Compress::$_CompressionModule{$algo}::compress"};
+    _eval("$_CompressionModule{$algo} compression", sub {
+	$tmp = $compress->(\$object->{body});
     });
-    # FIXME: for text body, we may loose space because of utf+base64... check final length?
-    return unless (length($tmp) / $len) < 0.9;
-    # ... and is worth compressing
     $object->{body} = $tmp;
-    $object->{encoding}{zlib}++;
+    $object->{encoding}{$algo}++;
 }
 
 #+++############################################################################
@@ -310,45 +313,67 @@ sub size : method {
 #
 
 $_ValidateSpec{jsonify} = {
-    compression => { type => SCALAR, regex => qr/^(zlib)?$/, optional => 1 },
+    compression => { type => SCALAR, regex => qr/^($_CompressionAlgos)?!?$/o, optional => 1 },
 };
 
 sub jsonify : method {
-    my($self, %option, $compression, %object);
+    my($self, %option, %object, $len, $algo, $force);
 
     $self = shift(@_);
     %option = validate(@_, $_ValidateSpec{jsonify}) if @_;
-    $compression = $option{compression} || "";
+    ($algo, $force) = ($1, $2)
+	if $option{compression} and $option{compression} =~ /^(\w+)(!?)$/;
     # check compression availability
-    _require("Compress::Zlib") if $compression eq "zlib";
+    _require("Compress::$_CompressionModule{$algo}") if $algo;
     # build the JSON object
     $object{text} = JSON::true if $self->{text};
     $object{header} = $self->{header} if keys(%{ $self->{header} });
-    return(\%object) unless length(${ $self->{body_ref} });
+    $len = length(${ $self->{body_ref} });
+    return(\%object) unless $len;
     $object{body} = ${ $self->{body_ref} };
     # handle non-empty body
     if ($self->{text}) {
 	# text body
-	if ($compression) {
+	if ($algo and $force) {
+	    # always compress
 	    _maybe_utf8_encode(\%object);
-	    if ($compression eq "zlib") {
-		_maybe_zlib_compress(\%object);
-	    }
-	    if ($object{encoding} and $object{encoding}{zlib}) {
-		# we did compress
-		_maybe_base64_encode(\%object);
-	    } else {
-		# in fact, we did not compress
+	    _do_compress(\%object, $algo);
+	    _maybe_base64_encode(\%object);
+	} elsif ($algo and $len > 255) {
+	    # maybe compress
+	    _maybe_utf8_encode(\%object);
+	    _do_compress(\%object, $algo);
+	    _maybe_base64_encode(\%object);
+	    if (length($object{body}) >= $len) {
+		# not worth it
 		$object{body} = ${ $self->{body_ref} };
 		delete($object{encoding});
 	    }
+	} else {
+	    # do not compress
 	}
     } else {
 	# binary body
-	if ($compression eq "zlib") {
-	    _maybe_zlib_compress(\%object);
+	if ($algo and $force) {
+	    # always compress
+	    _do_compress(\%object, $algo);
+	    _maybe_base64_encode(\%object);
+	} elsif ($algo and $len > 255) {
+	    # maybe compress
+	    $len *= 4/3
+		if $object{body} =~ /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]/;
+	    _do_compress(\%object, $algo);
+	    _maybe_base64_encode(\%object);
+	    if (length($object{body}) >= $len) {
+		# not worth it
+		$object{body} = ${ $self->{body_ref} };
+		delete($object{encoding});
+		_maybe_base64_encode(\%object);
+	    }
+	} else {
+	    # do not compress
+	    _maybe_base64_encode(\%object);
 	}
-	_maybe_base64_encode(\%object);
     }
     # set the encoding string
     $object{encoding} = join("+", sort(keys(%{ $object{encoding} })))
@@ -369,7 +394,7 @@ $_ValidateSpec{dejsonify} = {
 };
 
 sub dejsonify : method {
-    my($class, $object, $encoding, $self, $tmp, $len);
+    my($class, $object, $encoding, $self, $tmp, $len, $uncompress);
 
     $class = shift(@_);
     validate_pos(@_, { type => HASHREF })
@@ -378,8 +403,8 @@ sub dejsonify : method {
     $object = $_[0];
     $encoding = $object->{encoding} || "";
     _fatal("invalid encoding: %s", $encoding)
-	unless $encoding eq "" or "${encoding}+" =~ /^((base64|utf8|zlib)\+)+$/;
-    _require("Compress::Zlib") if $encoding =~ /zlib/;
+	unless $encoding eq "" or "${encoding}+" =~ /^((base64|utf8|$_CompressionAlgos)\+)+$/o;
+    _require("Compress::$_CompressionModule{$1}") if $encoding =~ /($_CompressionAlgos)/o;
     # construct the message
     $self = $class->new();
     $self->{text} = 1 if $object->{text};
@@ -398,10 +423,11 @@ sub dejsonify : method {
 	    });
 	    _fatal("invalid Base64 data: %s", $object->{body}) unless $len == length($tmp);
 	}
-	if ($encoding =~ /zlib/) {
-	    # body has been Zlib compressed
-	    _eval("Zlib decompression", sub {
-		$tmp = Compress::Zlib::uncompress(\$tmp);
+	if ($encoding =~ /($_CompressionAlgos)/o) {
+	    # body has been compressed
+	    $uncompress = \&{"Compress::$_CompressionModule{$1}::uncompress"};
+	    _eval("$_CompressionModule{$1} decompression", sub {
+		$tmp = $uncompress->(\$tmp);
 	    });
 	}
 	if ($encoding =~ /utf8/) {
@@ -657,17 +683,17 @@ that can be:
 
 =over
 
-=item base64
+=item C<base64>
 
 Base64 encoding (for binary body or compressed body)
 
-=item utf8
+=item C<utf8>
 
 UTF-8 encoding (only needed for a compressed text body)
 
-=item zlib
+=item C<snappy> or C<lz4> or C<zlib>
 
-Zlib compression
+Snappy or LZ4 or Zlib compression (only one can be specified)
 
 =back
 
@@ -846,12 +872,18 @@ of the header and body
 
 =back
 
-The jsonify(), stringify() and serialize() methods can be given
-options. Currently, the only supported option is C<compression> and
-the only supported compression is C<zlib> (when available). Here is
-for instance how to serialize a message, with compression:
+The jsonify(), stringify() and serialize() methods can be given options.
 
-  $bytes = $msg->serialize(compression => "zlib");
+Currently, the only supported option is C<compression> and it can
+contain either an algorithm name like C<zlib> (meaning: use this
+algorithm only of the compressed body is indeed smaller) or an
+algorithm name followed by an exclamation mark to always force
+compression.
+
+Here is for instance how to serialize a message, with forced
+compression:
+
+  $bytes = $msg->serialize(compression => "zlib!");
 
 In addition, in order to avoid string copies, the following methods
 are also available:
@@ -881,6 +913,8 @@ strings. Here is an example:
 
 =head1 SEE ALSO
 
+L<Compress::Snappy>,
+L<Compress::LZ4>,
 L<Compress::Zlib>,
 L<Encode>,
 L<JSON>.

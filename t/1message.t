@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use charnames qw(:full);
 use Messaging::Message;
-use Test::More tests => 77;
+use Test::More tests => 69;
 
 our($count, $binstr, $unistr);
 
@@ -104,18 +104,6 @@ sub test_ds ($$) {
     is_deeply($msg2, $msg1, "deserialize ($count)");
 }
 
-# test zlib compression
-
-sub test_zlib ($$$$) {
-    my($text, $body, $encoding, $str) = @_;
-    my($msg, $json);
-
-    $msg = Messaging::Message->new(text => $text, body => $body);
-    $json = $msg->jsonify(compression => "zlib");
-    is($json->{encoding}, $encoding, "zlib encoding");
-    is($json->{body}, $str, "zlib body");
-}
-
 #
 # setup
 #
@@ -158,19 +146,6 @@ test_ds(q/{"body":"aGVsbG8=","encoding":""}/,       Messaging::Message->new(body
 test_ds(q/{"body":"aGVsbG8=","encoding":"base64"}/, Messaging::Message->new(body => "hello"));
 test_ds(q/{"body":"aG9sYQ==","encoding":"base64"}/, Messaging::Message->new(body => "hola"));
 test_ds(q/{"body":"PT09","encoding":"base64"}/,     Messaging::Message->new(body => "==="));
-
-#
-# zlib
-#
-
-SKIP : {
-    eval { require Compress::Zlib };
-    skip("Compress::Zlib is not installed", 8) if $@;
-    test_zlib(0, "A"x256,    "base64+zlib",      "eJxzdBzZAACjYEEB");
-    test_zlib(1, "A"x256,    "base64+zlib",      "eJxzdBzZAACjYEEB");
-    test_zlib(0, "\xe8"x256, "base64+zlib",      "eJx78WJkAwB7zOgB");
-    test_zlib(1, "\xe8"x256, "base64+utf8+zlib", "eJw7vOLwKBzBEADaRWsQ");
-}
 
 #
 # validation errors

@@ -11,6 +11,7 @@ lib/Messaging/Message/Queue/DQN.pm
 lib/Messaging/Message/Queue/DQS.pm
 lib/Messaging/Message/Queue/NULL.pm
 t/1message.t
+t/2compress.t
 t/2generator.t
 t/2queue.t
 t/2serialize.t
@@ -24,6 +25,10 @@ t/2serialize.t.d/1d9d0faf7130b6c7ff996a8d94f424a0.7
 t/2serialize.t.d/1d9d0faf7130b6c7ff996a8d94f424a0.8
 t/2serialize.t.d/298b5466c1d3702a022032abc116223c.1
 t/2serialize.t.d/298b5466c1d3702a022032abc116223c.2
+t/2serialize.t.d/59181ee8a1d930bee8f4a5487d0af37b.0
+t/2serialize.t.d/59181ee8a1d930bee8f4a5487d0af37b.1
+t/2serialize.t.d/59181ee8a1d930bee8f4a5487d0af37b.2
+t/2serialize.t.d/59181ee8a1d930bee8f4a5487d0af37b.3
 t/2serialize.t.d/8970766db24a582afa2be6456f62eae9
 t/2serialize.t.d/aa7b4c1df3d271390652ef0be6768e15
 t/2serialize.t.d/b21a8d2c3afcb082d8ff7c66e1ba36f9.0

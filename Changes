@@ -1,5 +1,9 @@
 Revision history for Messaging-Message:
 
+1.1	Wed Apr 25 2012
+	* Added support for LZ4 and Snappy compression.
+	* Added support for forced compression in jsonify() and friends.
+
 1.0	Mon Mar  5 2012
 	* Promoted to 1.0 after successful testing.
 	* The API is now stable.

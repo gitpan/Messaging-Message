@@ -8,6 +8,8 @@ use Messaging::Message;
 use POSIX qw(:fcntl_h);
 use Test::More;
 
+eval { require Compress::LZ4 };
+eval { require Compress::Snappy };
 eval { require Compress::Zlib };
 
 sub contents ($) {
@@ -59,6 +61,12 @@ sub test_one ($) {
     $md5 = $1;
     $tmp = contents($path);
     SKIP : {
+	skip("Compress::LZ4 is not installed", 1)
+	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*lz4\b/ and
+	    not $Compress::LZ4::VERSION;
+	skip("Compress::Snappy is not installed", 1)
+	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*snappy\b/ and
+	    not $Compress::Snappy::VERSION;
 	skip("Compress::Zlib is not installed", 1)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*zlib\b/ and
 	    not $Compress::Zlib::VERSION;
