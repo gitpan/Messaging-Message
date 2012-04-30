@@ -3,11 +3,10 @@
 use strict;
 use warnings;
 use charnames qw(:full);
-use Test::More tests => 23;
-
+use File::Temp qw(tempdir);
 use Messaging::Message;
 use Messaging::Message::Queue;
-use File::Temp qw(tempdir);
+use Test::More tests => 23;
 
 our($tmpdir, $binstr, $unistr);
 

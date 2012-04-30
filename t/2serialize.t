@@ -4,13 +4,28 @@ use strict;
 use warnings;
 use Digest::MD5 qw(md5_hex);
 use Encode qw();
+use File::Temp qw(tempdir);
 use Messaging::Message;
+use Messaging::Message::Queue;
 use POSIX qw(:fcntl_h);
 use Test::More;
 
 eval { require Compress::LZ4 };
 eval { require Compress::Snappy };
 eval { require Compress::Zlib };
+eval { require Directory::Queue::Normal };
+eval { require Directory::Queue::Simple };
+
+our($tmpdir, $mqn, $mqs, $tpm);
+
+$tmpdir = tempdir(CLEANUP => 1);
+$mqn = Messaging::Message::Queue->new(type => "DQN",  path => "$tmpdir/DQN")
+    if $Directory::Queue::Normal::VERSION;
+$mqs = Messaging::Message::Queue->new(type => "DQS",  path => "$tmpdir/DQS")
+    if $Directory::Queue::Simple::VERSION;
+$tpm = 1;
+$tpm++ if $mqn;
+$tpm++ if $mqs;
 
 sub contents ($) {
     my($path) = @_;
@@ -52,27 +67,40 @@ sub md5_msg ($) {
     return(md5_hex($buf));
 }
 
+sub test_queue ($$$$) {
+    my($mq, $msg, $md5, $path) = @_;
+    my($elt);
+
+    $elt = $mq->add_message($msg);
+    $mq->lock($elt);
+    $msg = $mq->get_message($elt);
+    $mq->unlock($elt);
+    is(md5_msg($msg), $md5, $path);
+}
+
 sub test_one ($) {
     my($path) = @_;
-    my($tmp, $msg, $md5);
+    my($md5, $tmp, $msg);
 
     die("unexpected path: $path\n")
 	unless $path =~ /^(?:.+\/)?([0-9a-f]{32})(\.\d+)?$/;
     $md5 = $1;
     $tmp = contents($path);
     SKIP : {
-	skip("Compress::LZ4 is not installed", 1)
+	skip("Compress::LZ4 is not installed", $tpm)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*lz4\b/ and
 	    not $Compress::LZ4::VERSION;
-	skip("Compress::Snappy is not installed", 1)
+	skip("Compress::Snappy is not installed", $tpm)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*snappy\b/ and
 	    not $Compress::Snappy::VERSION;
-	skip("Compress::Zlib is not installed", 1)
+	skip("Compress::Zlib is not installed", $tpm)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*zlib\b/ and
 	    not $Compress::Zlib::VERSION;
 	eval { $msg = Messaging::Message->deserialize_ref(\$tmp) };
 	if ($msg) {
 	    is(md5_msg($msg), $md5, $path);
+	    test_queue($mqn, $msg, $md5, $path) if $mqn;
+	    test_queue($mqs, $msg, $md5, $path) if $mqs;
 	} else {
 	    $@ =~ s/\s*$//;
 	    is($@, "", $path);
@@ -81,7 +109,7 @@ sub test_one ($) {
 }
 
 sub test_all (@) {
-    plan tests => scalar(@_);
+    plan tests => scalar(@_) * $tpm;
     foreach my $path (@_) {
 	test_one($path);
     }

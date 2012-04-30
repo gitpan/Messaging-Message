@@ -13,8 +13,8 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "1.1";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.14 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.17 $ =~ /(\d+)\.(\d+)/);
 
 #
 # export control
@@ -135,7 +135,7 @@ sub _eval ($&@) {
 sub _maybe_base64_encode ($) {
     my($object) = @_;
 
-    return unless $object->{body} =~ /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]/;
+    return unless $object->{body} =~ /[^\t\n\r\x20-\x7e]/;
     # only if it contains more than printable ASCII characters (plus \t \n \r)
     _eval("Base64 encoding", sub {
 	$object->{body} = encode_base64($object->{body}, "");
@@ -147,16 +147,13 @@ sub _maybe_utf8_encode ($) {
     my($object) = @_;
     my($tmp);
 
-    return unless $object->{body} =~ /[\x80-\xff]/;
-    # only if it contains more than ASCII characters...
     _eval("UTF-8 encoding", sub {
 	$tmp = Encode::encode("UTF-8", $object->{body}, Encode::FB_CROAK|Encode::LEAVE_SRC);
     });
-    return if $object->{body} eq $tmp;
-    # ... and is worth encoding
+    return if $tmp eq $object->{body};
     $object->{body} = $tmp;
     $object->{encoding}{utf8}++;
-}
+			}
 
 sub _do_compress ($$) {
     my($object, $algo) = @_;
@@ -360,8 +357,7 @@ sub jsonify : method {
 	    _maybe_base64_encode(\%object);
 	} elsif ($algo and $len > 255) {
 	    # maybe compress
-	    $len *= 4/3
-		if $object{body} =~ /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]/;
+	    $len *= 4/3 if $object{body} =~ /[^\t\n\r\x20-\x7e]/;
 	    _do_compress(\%object, $algo);
 	    _maybe_base64_encode(\%object);
 	    if (length($object{body}) >= $len) {
@@ -433,8 +429,8 @@ sub dejsonify : method {
 	if ($encoding =~ /utf8/) {
 	    # body has been UTF-8 encoded
 	    _eval("UTF-8 decoding", sub {
-		$tmp = Encode::decode("UTF-8", $tmp, Encode::FB_CROAK|Encode::LEAVE_SRC);
-	    }) if $tmp =~ /[\x80-\xff]/;
+		$tmp = Encode::decode("UTF-8", $tmp, Encode::FB_CROAK);
+	    });
 	}
 	$self->{body_ref} = \$tmp;
     }
@@ -517,9 +513,8 @@ sub serialize : method {
 
     $self = shift(@_);
     $tmp = $self->stringify_ref(@_);
-    return($$tmp) unless $$tmp =~ /[\x80-\xff]/;
     _eval("UTF-8 encoding", sub {
-	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK|Encode::LEAVE_SRC);
+	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK);
     });
     return($tmp);
 }
@@ -529,9 +524,8 @@ sub serialize_ref : method {
 
     $self = shift(@_);
     $tmp = $self->stringify_ref(@_);
-    return($tmp) unless $$tmp =~ /[\x80-\xff]/;
     _eval("UTF-8 encoding", sub {
-	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK|Encode::LEAVE_SRC);
+	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK);
     });
     return(\$tmp);
 }
@@ -546,7 +540,7 @@ sub deserialize : method {
     $class = shift(@_);
     validate_pos(@_, { type => SCALAR })
 	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
-    return($class->destringify($_[0])) unless $_[0] =~ /[\x80-\xff]/;
+    return($class->destringify($_[0])) unless $_[0] =~ /[^[:ascii:]]/;
     _eval("UTF-8 decoding", sub {
 	$tmp = Encode::decode("UTF-8", $_[0], Encode::FB_CROAK|Encode::LEAVE_SRC);
     }, @_);
@@ -559,7 +553,7 @@ sub deserialize_ref : method {
     $class = shift(@_);
     validate_pos(@_, { type => SCALARREF })
 	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
-    return($class->destringify_ref($_[0])) unless ${ $_[0] } =~ /[\x80-\xff]/;
+    return($class->destringify_ref($_[0])) unless ${ $_[0] } =~ /[^[:ascii:]]/;
     _eval("UTF-8 decoding", sub {
 	$tmp = Encode::decode("UTF-8", ${ $_[0] }, Encode::FB_CROAK|Encode::LEAVE_SRC);
     }, @_);

@@ -1,5 +1,8 @@
 Revision history for Messaging-Message:
 
+1.2	Mon Apr 30 2012
+	* Improved the message generator: it can now generate Unicode strings.
+
 1.1	Wed Apr 25 2012
 	* Added support for LZ4 and Snappy compression.
 	* Added support for forced compression in jsonify() and friends.

@@ -3,117 +3,116 @@
 use strict;
 use warnings;
 use Messaging::Message::Generator;
-use Test::More tests => 40;
+use Test::More tests => 41;
 
-sub test ($) {
-    my($mg) = @_;
-    my($msg, $idx, $bad, $n, $k, $v);
+#
+# test the empty generator
+#
 
-    foreach $idx (1 .. 10) {
-	$bad = "";
+sub test0 () {
+    our($mg, $msg, $tmp);
+
+    $mg = Messaging::Message::Generator->new();
+    $tmp = 0;
+    foreach (1 .. 10) {
 	$msg = $mg->message();
-	# body
-	if ($mg->{"body-content"} eq "base64") {
-	    unless ($msg->body() =~ /^[a-zA-Z0-9\+\/]*$/) {
-		$bad = "invalid body content";
-		goto done;
-	    }
-	} elsif ($mg->{"body-content"} eq "binary") {
-	    # can be anything!
-	} elsif ($mg->{"body-content"} eq "index") {
-	    unless ($msg->body() =~ /^[0-9 ]*$/) {
-		$bad = "invalid body content";
-		goto done;
-	    }
-	} elsif ($mg->{"body-content"} eq "text") {
-	    unless ($msg->body() =~ /^[\x20-\x7e]*$/) {
-		$bad = "invalid body content";
-		goto done;
-	    }
-	} else {
-	    die;
+	$tmp++ if $msg->serialize() eq "{}";
+    }
+    is($tmp, 10, "empty generator");
+}
+
+#
+# test a reasonable generator (the one from the POD)
+#
+
+sub test1 () {
+    our($mg, $msg, $tmp);
+
+    $mg = Messaging::Message::Generator->new(
+	"text" => "0-1",
+	"body-length" => "0-1000",
+	"body-entropy" => "1-4",
+	"header-count" => "2^6",
+	"header-name-length" => "10-20",
+	"header-name-entropy" => "1-2",
+	"header-name-prefix" => "rnd-",
+	"header-value-length" => "20-40",
+	"header-value-entropy" => "0-3",
+    );
+    foreach (1 .. 10) {
+	$msg = $mg->message();
+	$tmp = length($msg->body());
+	ok($tmp <= 1000, "normal body $_");
+	$tmp = keys(%{ $msg->header() });
+	ok($tmp <= 6, "normal header $_");
+	$tmp = grep($_ !~ /^rnd-/, keys(%{ $msg->header() }));
+	is($tmp, 0, "normal header prefix $_");
+    }
+    $tmp = 0;
+    foreach (1 .. 100) {
+	eval { $msg = $mg->message() };
+	$tmp++ unless $@;
+    }
+    is($tmp, 100, "normal generator");
+}
+
+#
+# test random integers
+#
+
+sub test2 () {
+    my(%seen, @tmp);
+
+    %seen = ();
+    foreach (1 .. 1000) {
+	$seen{Messaging::Message::Generator::_rndint(17)}++;
+    }
+    @tmp = keys(%seen);
+    is("@tmp", "17", "_rndint(17)");
+
+    %seen = ();
+    foreach (1 .. 1000) {
+	$seen{Messaging::Message::Generator::_rndint("173-231")}++;
+    }
+    @tmp = keys(%seen);
+    ok(scalar(@tmp) > 30, "_rndint(173-231)");
+    @tmp = grep($_ < 173 || 231 < $_, keys(%seen));
+    is("@tmp", "", "_rndint(173-231)");
+
+    %seen = ();
+    foreach (1 .. 1000) {
+	$seen{Messaging::Message::Generator::_rndint("173^231")}++;
+    }
+    @tmp = keys(%seen);
+    ok(scalar(@tmp) > 20, "_rndint(173^231)");
+    @tmp = grep($_ < 173 || 231 < $_, keys(%seen));
+    is("@tmp", "", "_rndint(173^231)");
+}
+
+#
+# test random strings
+#
+
+sub test3 () {
+    my(@range, $e, $tmp, $bogus);
+
+    @range = ('A-Z', '0-9a-f', '0-9a-zA-Z\-\+', '\x20-\x7e');
+    foreach $e (0 .. $#range) {
+	$bogus = "";
+	foreach (1 .. 1000) {
+	    $tmp = Messaging::Message::Generator::_rndstr(0, 1000, $e);
+	    next if $$tmp =~ /^[$range[$e]]{1000}$/;
+	    $bogus = $$tmp;
 	}
-	$n = $mg->{"body-size"};
-	if (defined($n)) {
-	    if ($n >= 0) {
-		unless (length($msg->body()) == $n) {
-		    $bad = "invalid body size";
-		    goto done;
-		}
-	    } else {
-		unless (length($msg->body()) <= - 2 * $n) {
-		    $bad = "invalid body size";
-		    goto done;
-		}
-	    }
-	}
-	# header
-	$n = $mg->{"header-count"};
-	if ($n) {
-	    if ($n > 0) {
-		unless ($msg->header() and keys(%{ $msg->header() }) == $n) {
-		    $bad = "invalid header count";
-		    goto done;
-		}
-	    } else {
-		unless ($msg->header() and keys(%{ $msg->header() }) <= - 2 * $n) {
-		    $bad = "invalid header count";
-		    goto done;
-		}
-	    }
-	} else {
-	    unless (not $msg->header() or keys(%{ $msg->header() }) == 0) {
-		$bad = "invalid header count";
-		goto done;
-	    }
-	}
-	$n = $mg->{"header-value-size"};
-	if ($msg->header()) {
-	    while (($k, $v) = each(%{ $msg->header() })) {
-		unless ($k =~ /^[a-zA-Z0-9\-\_]+$/) {
-		    $bad = "invalid header key";
-		    goto done;
-		}
-		unless ($v =~ /^[\x20-\x7e]*$/) {
-		    $bad = "invalid header value";
-		    goto done;
-		}
-		if ($n > 0) {
- 		    unless (length($v) == $n) {
-			$bad = "invalid header value size";
-			goto done;
-		    }
-		} else {
- 		    unless (length($v) <= - 2 * $n) {
-			$bad = "invalid header value size";
-			goto done;
-		    }
-		}
-	    }
-	}
-      done:
-	is($bad, "", join(" ", %$mg));
+	is($bogus, "", "_rndstr(0, 1000, $e)");
     }
 }
 
-test(Messaging::Message::Generator->new());
+#
+# test all
+#
 
-test(Messaging::Message::Generator->new(
-    "body-size" => 99,
-    "body-content" => "index",
-    "header-count" => 10,
-));
-
-test(Messaging::Message::Generator->new(
-    "body-size" => 999,
-    "body-content" => "base64",
-    "header-count" => 10,
-    "header-value-size" => 64,
-));
-
-test(Messaging::Message::Generator->new(
-    "body-size" => -100,
-    "body-content" => "text",
-    "header-count" => -10,
-    "header-value-size" => -40,
-));
+test0();
+test1();
+test2();
+test3();

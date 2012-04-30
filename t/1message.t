@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use charnames qw(:full);
 use Messaging::Message;
-use Test::More tests => 69;
+use Test::More tests => 70;
 
 our($count, $binstr, $unistr);
 
@@ -69,6 +69,10 @@ sub test_basic () {
     $msg->body_ref(\$body);
     is($msg->body_ref(), \$body, "reference body (1)");
     is($msg->body(), $body, "reference body (2)");
+
+    # serialization
+    $msg = Messaging::Message->new(body => "smiley=\x{263a}", text => 1);
+    ok(!Encode::is_utf8($msg->serialize()), "serialize smiley");
 }
 
 # test message -> message
