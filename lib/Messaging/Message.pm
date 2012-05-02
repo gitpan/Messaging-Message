@@ -13,8 +13,8 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "1.2";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.17 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.2_1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.18 $ =~ /(\d+)\.(\d+)/);
 
 #
 # export control
@@ -425,6 +425,7 @@ sub dejsonify : method {
 	    _eval("$_CompressionModule{$1} decompression", sub {
 		$tmp = $uncompress->(\$tmp);
 	    });
+	    _fatal("invalid $_CompressionModule{$1} compressed data!") unless defined($tmp);
 	}
 	if ($encoding =~ /utf8/) {
 	    # body has been UTF-8 encoded

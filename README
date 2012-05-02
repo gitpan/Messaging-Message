@@ -24,6 +24,8 @@ To install this module, run the following commands:
 In addition to the mandatory modules listed in Makefile.PL, the
 following optional modules do bring extra functionality:
 
+    Compress::LZ4 - allows body (de)compression when (de)serializing
+    Compress::Snappy - allows body (de)compression when (de)serializing
     Compress::Zlib - allows body (de)compression when (de)serializing
     Directory::Queue::Normal - required by Messaging::Message::Queue::DQN
     Directory::Queue::Simple - required by Messaging::Message::Queue::DQS

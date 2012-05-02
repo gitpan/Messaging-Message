@@ -12,12 +12,19 @@ sub test_compress ($$$$$) {
     $msg = Messaging::Message->new(text => $text, body => $body);
     $json = $msg->jsonify(compression => $algo);
     is($json->{encoding}, $encoding, "$algo encoding");
-    is($json->{body}, $str, "$algo body");
+    if ($json->{body} eq $str) {
+	# cool, same compressed data
+	ok(1, "$algo body (compressed)");
+    } else {
+	# compressed data mismatch, maybe this is not a problem
+	$msg = Messaging::Message->dejsonify($json);
+	is($body, $msg->body(), "$algo body (uncompressed)");
+    }
 }
 
 SKIP : {
-    eval { require Compress::LZ4 };
-    skip("Compress::LZ4 is not installed", 12) if $@;
+    eval("use Compress::LZ4 0.12 qw()");
+    skip("recent enough Compress::LZ4 not installed", 12) if $@;
     test_compress("lz4", 0, "A"x256, "base64+lz4", "AAEAAB9BAQDnUEFBQUFB");
     test_compress("lz4", 1, "A"x256, "base64+lz4", "AAEAAB9BAQDnUEFBQUFB");
     test_compress("lz4", 0, "\xe8"x256, "base64+lz4", "AAEAAB/oAQDnUOjo6Ojo");
@@ -27,9 +34,9 @@ SKIP : {
 }
 
 SKIP : {
-    eval { require Compress::Snappy };
-    skip("Compress::Snappy is not installed", 12) if $@;
-    test_compress("snappy", 0, "A"x256, "base64+snappy", "gAIAQf4BAP4BAP4BAPoBAA==");
+    eval("use Compress::Snappy 0.17 qw()");
+    skip("recent enough Compress::Snappy not installed", 12) if $@;
+    test_compress("snappy", 0, "A"x256, "base64+snappy", "gAIAQf4BAP4BAP4BAPYBAABB");
     test_compress("snappy", 1, "A"x256, "base64+snappy", "gAIAQf4BAP4BAP4BAPoBAA==");
     test_compress("snappy", 0, "\xe8"x256, "base64+snappy", "gAIA6P4BAP4BAP4BAPoBAA==");
     test_compress("snappy", 1, "\xe8"x256, "base64+snappy+utf8", "gAQEw6j+AgD+AgD+AgD+AgD+AgD+AgD+AgD2AgA=");
@@ -38,8 +45,8 @@ SKIP : {
 }
 
 SKIP : {
-    eval { require Compress::Zlib };
-    skip("Compress::Zlib is not installed", 12) if $@;
+    eval("use Compress::Zlib 2.007 qw()");
+    skip("recent enough Compress::Zlib not installed", 12) if $@;
     test_compress("zlib", 0, "A"x256, "base64+zlib", "eJxzdBzZAACjYEEB");
     test_compress("zlib", 1, "A"x256, "base64+zlib", "eJxzdBzZAACjYEEB");
     test_compress("zlib", 0, "\xe8"x256, "base64+zlib", "eJx78WJkAwB7zOgB");

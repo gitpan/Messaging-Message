@@ -1,5 +1,8 @@
 Revision history for Messaging-Message:
 
+???	???
+	* Portability fixes for the new compression algorithms.
+
 1.2	Mon Apr 30 2012
 	* Improved the message generator: it can now generate Unicode strings.
 
