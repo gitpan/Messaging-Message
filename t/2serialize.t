@@ -10,19 +10,24 @@ use Messaging::Message::Queue;
 use POSIX qw(:fcntl_h);
 use Test::More;
 
-eval { require Compress::LZ4 };
-eval { require Compress::Snappy };
-eval { require Compress::Zlib };
-eval { require Directory::Queue::Normal };
-eval { require Directory::Queue::Simple };
+our(%Available, $tmpdir, $mqn, $mqs, $tpm);
 
-our($tmpdir, $mqn, $mqs, $tpm);
+eval("use Compress::LZ4 0.12 qw()");
+$Available{"Compress::LZ4"}++ unless $@;
+eval("use Compress::Snappy 0.17 qw()");
+$Available{"Compress::Snappy"}++ unless $@;
+eval("use Compress::Zlib 2.007 qw()");
+$Available{"Compress::Zlib"}++ unless $@;
+eval("use Directory::Queue::Normal 1.5 qw()");
+$Available{"Directory::Queue::Normal"}++ unless $@;
+eval("use Directory::Queue::Normal 1.5 qw()");
+$Available{"Directory::Queue::Simple"}++ unless $@;
 
 $tmpdir = tempdir(CLEANUP => 1);
 $mqn = Messaging::Message::Queue->new(type => "DQN",  path => "$tmpdir/DQN")
-    if $Directory::Queue::Normal::VERSION;
+    if $Available{"Directory::Queue::Normal"};
 $mqs = Messaging::Message::Queue->new(type => "DQS",  path => "$tmpdir/DQS")
-    if $Directory::Queue::Simple::VERSION;
+    if $Available{"Directory::Queue::Simple"};
 $tpm = 1;
 $tpm++ if $mqn;
 $tpm++ if $mqs;
@@ -87,15 +92,15 @@ sub test_one ($) {
     $md5 = $1;
     $tmp = contents($path);
     SKIP : {
-	skip("Compress::LZ4 is not installed", $tpm)
+	skip("recent enough Compress::LZ4 not installed", $tpm)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*lz4\b/ and
-	    not $Compress::LZ4::VERSION;
-	skip("Compress::Snappy is not installed", $tpm)
+	    not $Available{"Compress::LZ4"};
+	skip("recent enough Compress::Snappy not installed", $tpm)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*snappy\b/ and
-	    not $Compress::Snappy::VERSION;
-	skip("Compress::Zlib is not installed", $tpm)
+	    not $Available{"Compress::Snappy"};
+	skip("recent enough Compress::Zlib not installed", $tpm)
 	    if $tmp =~ /\"encoding\"\s*:\s*\"[a-z0-9\+]*zlib\b/ and
-	    not $Compress::Zlib::VERSION;
+	    not $Available{"Compress::Zlib"};
 	eval { $msg = Messaging::Message->deserialize_ref(\$tmp) };
 	if ($msg) {
 	    is(md5_msg($msg), $md5, $path);

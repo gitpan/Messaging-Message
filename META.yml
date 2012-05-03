@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Messaging-Message
-version:            1.2_1
+version:            1.2_2
 abstract:           message related modules
 author:
     - Lionel Cons <lionel.cons@cern.ch>
