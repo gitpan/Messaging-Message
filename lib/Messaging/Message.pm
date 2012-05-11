@@ -13,8 +13,8 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "1.2_2";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.18 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.3";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.19 $ =~ /(\d+)\.(\d+)/);
 
 #
 # export control
@@ -686,9 +686,9 @@ Base64 encoding (for binary body or compressed body)
 
 UTF-8 encoding (only needed for a compressed text body)
 
-=item C<snappy> or C<lz4> or C<zlib>
+=item C<lz4> or C<snappy> or C<zlib>
 
-Snappy or LZ4 or Zlib compression (only one can be specified)
+LZ4 or Snappy or Zlib compression (only one can be specified)
 
 =back
 
