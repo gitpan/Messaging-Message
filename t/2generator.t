@@ -96,7 +96,7 @@ sub test2 () {
 sub test3 () {
     my(@range, $e, $tmp, $bogus);
 
-    @range = ('A-Z', '0-9a-f', '0-9a-zA-Z\-\+', '\x20-\x7e');
+    @range = ('A-Z', '0-9a-f', '0-9a-zA-Z\_\-', '\x20-\x7e');
     foreach $e (0 .. $#range) {
 	$bogus = "";
 	foreach (1 .. 1000) {

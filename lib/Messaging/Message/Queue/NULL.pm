@@ -13,8 +13,8 @@
 package Messaging::Message::Queue::NULL;
 use strict;
 use warnings;
-our $VERSION  = "1.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.2 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.4 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
@@ -26,7 +26,8 @@ our @ISA = qw(Messaging::Message::Queue Directory::Queue::Null);
 # used modules
 #
 
-use Messaging::Message qw(_fatal _require);
+use Messaging::Message qw(_require);
+use No::Worries::Die qw(dief);
 use Params::Validate qw(validate_with validate_pos :types);
 
 #
@@ -41,7 +42,7 @@ sub new : method {
     %option = validate_with(
         params      => \@_,
         spec        => {},
-	allow_extra => 0,
+        allow_extra => 0,
     );
     $self = Directory::Queue::Null->new(%option);
     bless($self, $class);
@@ -73,7 +74,7 @@ sub get_message : method {
     $elt = shift(@_);
     # the next line should trigger a fatal error as the queue is always empty
     $self->get($elt);
-    _fatal("ooops");
+    dief("ooops");
 }
 
 1;

@@ -13,8 +13,8 @@
 package Messaging::Message::Queue::DQS;
 use strict;
 use warnings;
-our $VERSION  = "1.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.8 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
@@ -26,7 +26,7 @@ our @ISA = qw(Messaging::Message::Queue Directory::Queue::Simple);
 # used modules
 #
 
-use Messaging::Message qw(_fatal _require);
+use Messaging::Message qw(_require);
 use Params::Validate qw(validate_with validate_pos :types);
 
 #
@@ -41,17 +41,17 @@ sub new : method {
     %option = validate_with(
         params      => \@_,
         spec        => { compression => { type => SCALAR, optional => 1 } },
-	allow_extra => 1,
+        allow_extra => 1,
     );
     $compression = delete($option{compression});
     if ($compression) {
-	# check that this compression is indeed available...
-	Messaging::Message->new()->jsonify(compression => $compression);
+        # check that this compression is indeed available...
+        Messaging::Message->new()->jsonify(compression => $compression);
     }
     $self = Directory::Queue::Simple->new(%option);
     if ($compression) {
-	# extend the object the dirty way...
-	$self->{compression} = $compression;
+        # extend the object the dirty way...
+        $self->{compression} = $compression;
     }
     bless($self, $class);
     return($self);
@@ -62,13 +62,13 @@ sub new : method {
 #
 
 sub add_message : method {
-    my($self, $msg);
+    my($self, $msg, %opt);
 
     $self = shift(@_);
     validate_pos(@_, { isa => "Messaging::Message" });
     $msg = shift(@_);
-    return($self->add_ref($msg->serialize_ref())) unless $self->{compression};
-    return($self->add_ref($msg->serialize_ref(compression => $self->{compression})));
+    %opt = (compression => $self->{compression}) if $self->{compression};
+    return($self->add_ref($msg->serialize_ref(%opt)));
 }
 
 #

@@ -13,8 +13,8 @@
 package Messaging::Message::Queue::DQN;
 use strict;
 use warnings;
-our $VERSION  = "1.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.3 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/);
 
 #
 # inheritance
@@ -26,7 +26,7 @@ our @ISA = qw(Messaging::Message::Queue Directory::Queue::Normal);
 # used modules
 #
 
-use Messaging::Message qw(_fatal _require);
+use Messaging::Message qw(_require);
 use Params::Validate qw(validate_with validate_pos :types);
 
 #
@@ -41,12 +41,12 @@ sub new : method {
     %option = validate_with(
         params      => \@_,
         spec        => {},
-	allow_extra => 1,
+        allow_extra => 1,
     );
     $option{schema} = {
-	header => "table",
-	binary => "binary*?",
-	text   => "string*?",
+        header => "table",
+        binary => "binary*?",
+        text   => "string*?",
     };
     $self = Directory::Queue::Normal->new(%option);
     bless($self, $class);

@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Messaging-Message
-version:            1.3
+version:            1.4
 abstract:           message related modules
 author:
     - Lionel Cons <lionel.cons@cern.ch>
@@ -13,10 +13,10 @@ build_requires:
 requires:
     Digest::MD5:       0
     Encode:            0
-    Exporter:          0
     File::Temp:        0
     JSON:              0
     MIME::Base64:      0
+    No::Worries:       0.7
     Params::Validate:  0
     POSIX:             0
     Test::More:        0

@@ -13,14 +13,14 @@
 package Messaging::Message::Queue;
 use strict;
 use warnings;
-our $VERSION  = "1.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.4 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
-use Messaging::Message qw(_fatal _require);
+use Messaging::Message qw(_require);
 use Params::Validate qw(validate_with :types);
 
 #
@@ -33,7 +33,9 @@ sub new : method {
     $class = shift(@_);
     %option = validate_with(
         params      => \@_,
-        spec        => { type => { type => SCALAR, regex => qr/^[a-zA-Z0-9]+$/ } },
+        spec        => {
+            type => { type => SCALAR, regex => qr/^[a-zA-Z0-9]+$/ },
+        },
         allow_extra => 1,
     );
     $mqc = $class . "::" . $option{type};

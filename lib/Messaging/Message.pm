@@ -13,26 +13,18 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "1.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.19 $ =~ /(\d+)\.(\d+)/);
-
-#
-# export control
-#
-
-use Exporter;
-our(@ISA, @EXPORT, @EXPORT_OK);
-@ISA = qw(Exporter);
-@EXPORT = qw();
-@EXPORT_OK = qw(_fatal _require);
+our $VERSION  = "1.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.23 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
-use Encode qw();
+use Encode qw(encode decode FB_CROAK LEAVE_SRC);
 use JSON qw();
 use MIME::Base64 qw(encode_base64 decode_base64);
+use No::Worries::Die qw(dief);
+use No::Worries::Export qw(export_control);
 use Params::Validate qw(validate validate_pos :types);
 
 #
@@ -40,12 +32,10 @@ use Params::Validate qw(validate validate_pos :types);
 #
 
 our(
-    %_LoadedModule,		# hash of successfully loaded modules
-    %_CompressionModule,	# known compression modules
-    $_CompressionAlgos,		# known compression algorithms
-    %_ValidateSpec,		# specifications for validate()
-    %_ValidateType,		# types for validate()
-    $_JSON,			# JSON object
+    %_LoadedModule,        # hash of successfully loaded modules
+    %_CompressionModule,   # known compression modules
+    $_CompressionAlgos,    # known compression algorithms
+    $_JSON,                # JSON object
 );
 
 %_CompressionModule = (
@@ -56,41 +46,11 @@ our(
 $_CompressionAlgos = join("|", sort(keys(%_CompressionModule)));
 $_JSON = JSON->new();
 
-#
-# types
-#
-
-$_ValidateType{header} = {
-    type => HASHREF,
-    callbacks => {
-	"hash of strings" => sub { grep(!defined($_)||ref($_), values(%{$_[0]})) == 0 },
-    },
-};
-
-$_ValidateType{json_bool} = {
-    type => OBJECT,
-    callbacks => {
-	"JSON::is_bool" => sub { JSON::is_bool($_[0]) },
-    },
-};
-
 #+++############################################################################
 #                                                                              #
 # helper functions                                                             #
 #                                                                              #
 #---############################################################################
-
-#
-# report a fatal error with a sprintf() API
-#
-
-sub _fatal ($@) {
-    my($message, @arguments) = @_;
-
-    $message = sprintf($message, @arguments) if @arguments;
-    $message =~ s/\s+$//;
-    die(caller() . ": $message\n");
-}
 
 #
 # make sure a module is loaded
@@ -100,12 +60,12 @@ sub _require ($) {
     my($module) = @_;
 
     return if $_LoadedModule{$module};
-    eval("require $module");
+    eval("require $module"); ## no critic 'ProhibitStringyEval'
     if ($@) {
-	$@ =~ s/\s+at\s.+?\sline\s+\d+\.?$//;
-	_fatal("failed to load %s: %s", $module, $@);
+        $@ =~ s/\s+at\s.+?\sline\s+\d+\.?$//;
+        dief("failed to load %s: %s", $module, $@);
     } else {
-	$_LoadedModule{$module} = 1;
+        $_LoadedModule{$module} = 1;
     }
 }
 
@@ -113,19 +73,16 @@ sub _require ($) {
 # evaluate some code with fatal warnings
 #
 
-sub _eval ($&@) {
-    my($what, $code);
+sub _eval ($&;$) {
+    my($what, $code, $arg) = @_;
 
-    $what = shift(@_);
-    $code = shift(@_);
     eval {
-	local $^W = 1;
-	local $SIG{__WARN__} = sub { die($_[0]) };
-	&$code;
+        local $SIG{__WARN__} = sub { die($_[0]) };
+        $code->($arg);
     };
     return unless $@;
     $@ =~ s/\s+at\s.+?\sline\s+\d+\.?$//;
-    _fatal("%s failed: %s", $what, $@);
+    dief("%s failed: %s", $what, $@);
 }
 
 #
@@ -135,12 +92,12 @@ sub _eval ($&@) {
 sub _maybe_base64_encode ($) {
     my($object) = @_;
 
-    return unless $object->{body} =~ /[^\t\n\r\x20-\x7e]/;
+    return unless $object->{"body"} =~ /[^\t\n\r\x20-\x7e]/;
     # only if it contains more than printable ASCII characters (plus \t \n \r)
     _eval("Base64 encoding", sub {
-	$object->{body} = encode_base64($object->{body}, "");
+        $object->{"body"} = encode_base64($object->{"body"}, "");
     });
-    $object->{encoding}{base64}++;
+    $object->{"encoding"}{"base64"}++;
 }
 
 sub _maybe_utf8_encode ($) {
@@ -148,12 +105,12 @@ sub _maybe_utf8_encode ($) {
     my($tmp);
 
     _eval("UTF-8 encoding", sub {
-	$tmp = Encode::encode("UTF-8", $object->{body}, Encode::FB_CROAK|Encode::LEAVE_SRC);
+        $tmp = encode("UTF-8", $object->{"body"}, FB_CROAK|LEAVE_SRC);
     });
-    return if $tmp eq $object->{body};
-    $object->{body} = $tmp;
-    $object->{encoding}{utf8}++;
-			}
+    return if $tmp eq $object->{"body"};
+    $object->{"body"} = $tmp;
+    $object->{"encoding"}{"utf8"}++;
+}
 
 sub _do_compress ($$) {
     my($object, $algo) = @_;
@@ -161,10 +118,10 @@ sub _do_compress ($$) {
 
     $compress = \&{"Compress::$_CompressionModule{$algo}::compress"};
     _eval("$_CompressionModule{$algo} compression", sub {
-	$tmp = $compress->(\$object->{body});
+        $tmp = $compress->(\$object->{"body"});
     });
-    $object->{body} = $tmp;
-    $object->{encoding}{$algo}++;
+    $object->{"body"} = $tmp;
+    $object->{"encoding"}{$algo}++;
 }
 
 #+++############################################################################
@@ -177,28 +134,44 @@ sub _do_compress ($$) {
 # normal constructor
 #
 
-$_ValidateSpec{new} = {
-    header   => { %{ $_ValidateType{header} }, optional => 1 },
-    body     => { type => SCALAR,              optional => 1 },
-    body_ref => { type => SCALARREF,           optional => 1 },
-    text     => { type => BOOLEAN,             optional => 1 },
-};
+my %new_options = (
+    "header" => {
+        type => HASHREF,
+        callbacks => {
+            "hash of strings" =>
+                sub { grep(!defined($_)||ref($_), values(%{$_[0]})) == 0 },
+        },
+        optional => 1,
+    },
+    "body" => {
+        type => SCALAR,
+        optional => 1,
+    },
+    "body_ref" => {
+        type => SCALARREF,
+        optional => 1,
+    },
+    "text" => {
+        type => BOOLEAN,
+        optional => 1,
+    },
+);
 
 sub new : method {
     my($class, %option, $body, $self);
 
     $class = shift(@_);
-    %option = validate(@_, $_ValidateSpec{new}) if @_;
-    _fatal("new(): options body and body_ref are mutually exclusive")
-	if exists($option{body}) and exists($option{body_ref});
+    %option = validate(@_, \%new_options) if @_;
+    dief("new(): options body and body_ref are mutually exclusive")
+        if exists($option{"body"}) and exists($option{"body_ref"});
     # default message
     $body = "";
-    $self = { header => {}, body_ref => \$body, text => 0 };
+    $self = { "header" => {}, "body_ref" => \$body, "text" => 0 };
     # handle options
-    $self->{header} = $option{header}     if exists($option{header});
-    $self->{body_ref} = $option{body_ref} if exists($option{body_ref});
-    $self->{body_ref} = \$option{body}    if exists($option{body});
-    $self->{text} = $option{text} ? 1 : 0 if exists($option{text});
+    $self->{"header"} = $option{"header"}     if exists($option{"header"});
+    $self->{"body_ref"} = $option{"body_ref"} if exists($option{"body_ref"});
+    $self->{"body_ref"} = \$option{"body"}    if exists($option{"body"});
+    $self->{"text"} = $option{"text"} ? 1 : 0 if exists($option{"text"});
     # so far so good!
     bless($self, $class);
     return($self);
@@ -212,9 +185,9 @@ sub header : method {
     my($self);
 
     $self = shift(@_);
-    return($self->{header}) if @_ == 0;
-    validate_pos(@_, { %{ $_ValidateType{header} }, optional => 1 });
-    $self->{header} = $_[0];
+    return($self->{"header"}) if @_ == 0;
+    validate_pos(@_, $new_options{"header"});
+    $self->{"header"} = $_[0];
     return($self);
 }
 
@@ -222,10 +195,10 @@ sub body_ref : method {
     my($self);
 
     $self = shift(@_);
-    return($self->{body_ref}) if @_ == 0;
-    validate_pos(@_, { type => SCALARREF, optional => 1 })
-	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
-    $self->{body_ref} = $_[0];
+    return($self->{"body_ref"}) if @_ == 0;
+    validate_pos(@_, $new_options{"body_ref"})
+        unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
+    $self->{"body_ref"} = $_[0];
     return($self);
 }
 
@@ -233,10 +206,10 @@ sub text : method {
     my($self);
 
     $self = shift(@_);
-    return($self->{text}) if @_ == 0;
-    validate_pos(@_, { type => BOOLEAN, optional => 1 })
-	unless @_ == 1 and (not defined($_[0]) or ref($_[0]) eq "");
-    $self->{text} = $_[0] ? 1 : 0;
+    return($self->{"text"}) if @_ == 0;
+    validate_pos(@_, $new_options{"text"})
+        unless @_ == 1 and (not defined($_[0]) or ref($_[0]) eq "");
+    $self->{"text"} = $_[0] ? 1 : 0;
     return($self);
 }
 
@@ -249,11 +222,11 @@ sub header_field : method {
 
     $self = shift(@_);
     if (@_ >= 1 and defined($_[0]) and ref($_[0]) eq "") {
-	return($self->{header}{$_[0]}) if @_ == 1;
-	if (@_ == 2 and defined($_[1]) and ref($_[1]) eq "") {
-	    $self->{header}{$_[0]} = $_[1];
-	    return($self);
-	}
+        return($self->{"header"}{$_[0]}) if @_ == 1;
+        if (@_ == 2 and defined($_[1]) and ref($_[1]) eq "") {
+            $self->{"header"}{$_[0]} = $_[1];
+            return($self);
+        }
     }
     # so far so bad :-(
     validate_pos(@_, { type => SCALAR }, { type => SCALAR, optional => 1 });
@@ -263,11 +236,11 @@ sub body : method {
     my($self, $body);
 
     $self = shift(@_);
-    return(${ $self->{body_ref} }) if @_ == 0;
-    validate_pos(@_, { type => SCALAR, optional => 1 })
-	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
+    return(${ $self->{"body_ref"} }) if @_ == 0;
+    validate_pos(@_, $new_options{"body"})
+        unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
     $body = $_[0]; # copy
-    $self->{body_ref} = \$body;
+    $self->{"body_ref"} = \$body;
     return($self);
 }
 
@@ -280,9 +253,13 @@ sub copy : method {
 
     $self = shift(@_);
     validate_pos(@_) if @_;
-    %header = %{ $self->{header} }; # copy
-    $body = ${ $self->{body_ref} }; # copy
-    $copy = { header => \%header, body_ref => \$body, text => $self->{text} };
+    %header = %{ $self->{"header"} }; # copy
+    $body = ${ $self->{"body_ref"} }; # copy
+    $copy = {
+        "header"   => \%header,
+        "body_ref" => \$body,
+        "text"     => $self->{"text"},
+    };
     bless($copy, ref($self));
     return($copy);
 }
@@ -292,9 +269,9 @@ sub size : method {
 
     $self = shift(@_);
     validate_pos(@_) if @_;
-    $size = 1 + length(${ $self->{body_ref} });
-    while (($key, $value) = each(%{ $self->{header} })) {
-	$size += 2 + length($key) + length($value);
+    $size = 1 + length(${ $self->{"body_ref"} });
+    while (($key, $value) = each(%{ $self->{"header"} })) {
+        $size += 2 + length($key) + length($value);
     }
     return($size);
 }
@@ -309,71 +286,88 @@ sub size : method {
 # jsonify (= transform into a JSON object)
 #
 
-$_ValidateSpec{jsonify} = {
-    compression => { type => SCALAR, regex => qr/^($_CompressionAlgos)?!?$/o, optional => 1 },
-};
+my %jsonify_options = (
+    "compression" => {
+        type     => SCALAR,
+        regex    => qr/^($_CompressionAlgos)?!?$/o,
+        optional => 1,
+    },
+);
+
+sub _jsonify_text ($$$$$) {
+    my($self, $object, $algo, $force, $len) = @_;
+
+    if ($algo and $force) {
+        # always compress
+        _maybe_utf8_encode($object);
+        _do_compress($object, $algo);
+        _maybe_base64_encode($object);
+    } elsif ($algo and $len > 255) {
+        # maybe compress
+        _maybe_utf8_encode($object);
+        _do_compress($object, $algo);
+        _maybe_base64_encode($object);
+        if (length($object->{"body"}) >= $len) {
+            # not worth it
+            $object->{"body"} = ${ $self->{"body_ref"} };
+            delete($object->{"encoding"});
+        }
+    } else {
+        # do not compress
+    }
+}
+
+sub _jsonify_binary ($$$$$) {
+    my($self, $object, $algo, $force, $len) = @_;
+
+    if ($algo and $force) {
+        # always compress
+        _do_compress($object, $algo);
+        _maybe_base64_encode($object);
+    } elsif ($algo and $len > 255) {
+        # maybe compress
+        $len *= 4/3 if $object->{"body"} =~ /[^\t\n\r\x20-\x7e]/;
+        _do_compress($object, $algo);
+        _maybe_base64_encode($object);
+        if (length($object->{"body"}) >= $len) {
+            # not worth it
+            $object->{"body"} = ${ $self->{"body_ref"} };
+            delete($object->{"encoding"});
+            _maybe_base64_encode($object);
+        }
+    } else {
+        # do not compress
+        _maybe_base64_encode($object);
+    }
+}
 
 sub jsonify : method {
-    my($self, %option, %object, $len, $algo, $force);
+    my($self, %option, %object, $algo, $force, $len);
 
     $self = shift(@_);
-    %option = validate(@_, $_ValidateSpec{jsonify}) if @_;
-    ($algo, $force) = ($1, $2)
-	if $option{compression} and $option{compression} =~ /^(\w+)(!?)$/;
+    %option = validate(@_, \%jsonify_options) if @_;
+    if ($option{"compression"} and $option{"compression"} =~ /^(\w+)(!?)$/) {
+        ($algo, $force) = ($1, $2);
+    }
     # check compression availability
     _require("Compress::$_CompressionModule{$algo}") if $algo;
     # build the JSON object
-    $object{text} = JSON::true if $self->{text};
-    $object{header} = $self->{header} if keys(%{ $self->{header} });
-    $len = length(${ $self->{body_ref} });
+    $object{"text"} = JSON::true if $self->{"text"};
+    $object{"header"} = $self->{"header"} if keys(%{ $self->{"header"} });
+    $len = length(${ $self->{"body_ref"} });
     return(\%object) unless $len;
-    $object{body} = ${ $self->{body_ref} };
+    $object{"body"} = ${ $self->{"body_ref"} };
     # handle non-empty body
-    if ($self->{text}) {
-	# text body
-	if ($algo and $force) {
-	    # always compress
-	    _maybe_utf8_encode(\%object);
-	    _do_compress(\%object, $algo);
-	    _maybe_base64_encode(\%object);
-	} elsif ($algo and $len > 255) {
-	    # maybe compress
-	    _maybe_utf8_encode(\%object);
-	    _do_compress(\%object, $algo);
-	    _maybe_base64_encode(\%object);
-	    if (length($object{body}) >= $len) {
-		# not worth it
-		$object{body} = ${ $self->{body_ref} };
-		delete($object{encoding});
-	    }
-	} else {
-	    # do not compress
-	}
+    if ($self->{"text"}) {
+        # text body
+        _jsonify_text($self, \%object, $algo, $force, $len);
     } else {
-	# binary body
-	if ($algo and $force) {
-	    # always compress
-	    _do_compress(\%object, $algo);
-	    _maybe_base64_encode(\%object);
-	} elsif ($algo and $len > 255) {
-	    # maybe compress
-	    $len *= 4/3 if $object{body} =~ /[^\t\n\r\x20-\x7e]/;
-	    _do_compress(\%object, $algo);
-	    _maybe_base64_encode(\%object);
-	    if (length($object{body}) >= $len) {
-		# not worth it
-		$object{body} = ${ $self->{body_ref} };
-		delete($object{encoding});
-		_maybe_base64_encode(\%object);
-	    }
-	} else {
-	    # do not compress
-	    _maybe_base64_encode(\%object);
-	}
+        # binary body
+        _jsonify_binary($self, \%object, $algo, $force, $len);
     }
     # set the encoding string
-    $object{encoding} = join("+", sort(keys(%{ $object{encoding} })))
-	if $object{encoding};
+    $object{"encoding"} = join("+", sort(keys(%{ $object{"encoding"} })))
+        if $object{"encoding"};
     # so far so good!
     return(\%object);
 }
@@ -382,58 +376,75 @@ sub jsonify : method {
 # dejsonify (= alternate constructor using the JSON object)
 #
 
-$_ValidateSpec{dejsonify} = {
-    header   => { %{ $_ValidateType{header} },    optional => 1 },
-    body     => { type => SCALAR,                 optional => 1 },
-    text     => { %{ $_ValidateType{json_bool} }, optional => 1 },
-    encoding => { type => SCALAR,                 optional => 1 },
-};
+my %dejsonify_options = (
+    "header" => $new_options{"header"},
+    "body" => {
+        type => SCALAR,
+        optional => 1,
+    },
+    "text" => {
+        type => OBJECT,
+        callbacks => {
+            "JSON::is_bool" => sub { JSON::is_bool($_[0]) },
+        },
+        optional => 1,
+    },
+    "encoding" => {
+        type => SCALAR,
+        optional => 1,
+    },
+);
 
 sub dejsonify : method {
     my($class, $object, $encoding, $self, $tmp, $len, $uncompress);
 
     $class = shift(@_);
     validate_pos(@_, { type => HASHREF })
-	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "HASH";
-    validate(@_, $_ValidateSpec{dejsonify});
+        unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "HASH";
+    validate(@_, \%dejsonify_options);
     $object = $_[0];
-    $encoding = $object->{encoding} || "";
-    _fatal("invalid encoding: %s", $encoding)
-	unless $encoding eq "" or "${encoding}+" =~ /^((base64|utf8|$_CompressionAlgos)\+)+$/o;
-    _require("Compress::$_CompressionModule{$1}") if $encoding =~ /($_CompressionAlgos)/o;
+    $encoding = $object->{"encoding"} || "";
+    dief("invalid encoding: %s", $encoding)
+        unless $encoding eq ""
+            or "${encoding}+" =~ /^((base64|utf8|$_CompressionAlgos)\+)+$/o;
+    _require("Compress::$_CompressionModule{$1}")
+        if $encoding =~ /($_CompressionAlgos)/o;
     # construct the message
     $self = $class->new();
-    $self->{text} = 1 if $object->{text};
-    $self->{header} = $object->{header} if $object->{header} and keys(%{ $object->{header} });
-    if (exists($object->{body})) {
-	$tmp = $object->{body};
-	if ($encoding =~ /base64/) {
-	    # body has been Base64 encoded, compute length to detect unexpected characters
-	    # (this is because MIME::Base64 silently ignores them)
-	    $len = length($tmp);
-	    _fatal("invalid Base64 data: %s", $object->{body}) if $len % 4;
-	    $len = $len * 3 / 4;
-	    $len -= substr($tmp, -2) =~ tr/=/=/;
-	    _eval("Base64 decoding", sub {
-		$tmp = decode_base64($tmp);
-	    });
-	    _fatal("invalid Base64 data: %s", $object->{body}) unless $len == length($tmp);
-	}
-	if ($encoding =~ /($_CompressionAlgos)/o) {
-	    # body has been compressed
-	    $uncompress = \&{"Compress::$_CompressionModule{$1}::uncompress"};
-	    _eval("$_CompressionModule{$1} decompression", sub {
-		$tmp = $uncompress->(\$tmp);
-	    });
-	    _fatal("invalid $_CompressionModule{$1} compressed data!") unless defined($tmp);
-	}
-	if ($encoding =~ /utf8/) {
-	    # body has been UTF-8 encoded
-	    _eval("UTF-8 decoding", sub {
-		$tmp = Encode::decode("UTF-8", $tmp, Encode::FB_CROAK);
-	    });
-	}
-	$self->{body_ref} = \$tmp;
+    $self->{"text"} = 1 if $object->{"text"};
+    $self->{"header"} = $object->{"header"}
+        if $object->{"header"} and keys(%{ $object->{"header"} });
+    if (exists($object->{"body"})) {
+        $tmp = $object->{"body"};
+        if ($encoding =~ /base64/) {
+            # body has been Base64 encoded, compute length to detect unexpected
+            # characters (this is because MIME::Base64 silently ignores them)
+            $len = length($tmp);
+            dief("invalid Base64 data: %s", $object->{"body"}) if $len % 4;
+            $len = $len * 3 / 4;
+            $len -= substr($tmp, -2) =~ tr/=/=/;
+            _eval("Base64 decoding", sub {
+                $tmp = decode_base64($tmp);
+            });
+            dief("invalid Base64 data: %s", $object->{"body"})
+                unless $len == length($tmp);
+        }
+        if ($encoding =~ /($_CompressionAlgos)/o) {
+            # body has been compressed
+            $uncompress = \&{"Compress::$_CompressionModule{$1}::uncompress"};
+            _eval("$_CompressionModule{$1} decompression", sub {
+                $tmp = $uncompress->(\$tmp);
+            });
+            dief("invalid $_CompressionModule{$1} compressed data!")
+                unless defined($tmp);
+        }
+        if ($encoding =~ /utf8/) {
+            # body has been UTF-8 encoded
+            _eval("UTF-8 decoding", sub {
+                $tmp = decode("UTF-8", $tmp, FB_CROAK);
+            });
+        }
+        $self->{"body_ref"} = \$tmp;
     }
     # so far so good!
     return($self);
@@ -455,7 +466,7 @@ sub stringify : method {
     $self = shift(@_);
     $tmp = $self->jsonify(@_);
     _eval("JSON encoding", sub {
-	$tmp = $_JSON->encode($tmp);
+        $tmp = $_JSON->encode($tmp);
     });
     return($tmp);
 }
@@ -466,7 +477,7 @@ sub stringify_ref : method {
     $self = shift(@_);
     $tmp = $self->jsonify(@_);
     _eval("JSON encoding", sub {
-	$tmp = $_JSON->encode($tmp);
+        $tmp = $_JSON->encode($tmp);
     });
     return(\$tmp);
 }
@@ -480,10 +491,10 @@ sub destringify : method {
 
     $class = shift(@_);
     validate_pos(@_, { type => SCALAR })
-	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
+        unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
     _eval("JSON decoding", sub {
-	$tmp = $_JSON->decode($_[0]);
-    }, @_);
+        $tmp = $_JSON->decode(${ $_[0] });
+    }, \$_[0]);
     return($class->dejsonify($tmp));
 }
 
@@ -492,10 +503,10 @@ sub destringify_ref : method {
 
     $class = shift(@_);
     validate_pos(@_, { type => SCALARREF })
-	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
+        unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
     _eval("JSON decoding", sub {
-	$tmp = $_JSON->decode(${ $_[0] });
-    }, @_);
+        $tmp = $_JSON->decode(${ $_[0] });
+    }, $_[0]);
     return($class->dejsonify($tmp));
 }
 
@@ -515,7 +526,7 @@ sub serialize : method {
     $self = shift(@_);
     $tmp = $self->stringify_ref(@_);
     _eval("UTF-8 encoding", sub {
-	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK);
+        $tmp = encode("UTF-8", ${ $tmp }, FB_CROAK);
     });
     return($tmp);
 }
@@ -526,7 +537,7 @@ sub serialize_ref : method {
     $self = shift(@_);
     $tmp = $self->stringify_ref(@_);
     _eval("UTF-8 encoding", sub {
-	$tmp = Encode::encode("UTF-8", $$tmp, Encode::FB_CROAK);
+        $tmp = encode("UTF-8", ${ $tmp }, FB_CROAK);
     });
     return(\$tmp);
 }
@@ -540,11 +551,11 @@ sub deserialize : method {
 
     $class = shift(@_);
     validate_pos(@_, { type => SCALAR })
-	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
+        unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "";
     return($class->destringify($_[0])) unless $_[0] =~ /[^[:ascii:]]/;
     _eval("UTF-8 decoding", sub {
-	$tmp = Encode::decode("UTF-8", $_[0], Encode::FB_CROAK|Encode::LEAVE_SRC);
-    }, @_);
+        $tmp = decode("UTF-8", ${ $_[0] }, FB_CROAK|LEAVE_SRC);
+    }, \$_[0]);
     return($class->destringify($tmp));
 }
 
@@ -553,12 +564,24 @@ sub deserialize_ref : method {
 
     $class = shift(@_);
     validate_pos(@_, { type => SCALARREF })
-	unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
+        unless @_ == 1 and defined($_[0]) and ref($_[0]) eq "SCALAR";
     return($class->destringify_ref($_[0])) unless ${ $_[0] } =~ /[^[:ascii:]]/;
     _eval("UTF-8 decoding", sub {
-	$tmp = Encode::decode("UTF-8", ${ $_[0] }, Encode::FB_CROAK|Encode::LEAVE_SRC);
-    }, @_);
+        $tmp = decode("UTF-8", ${ $_[0] }, FB_CROAK|LEAVE_SRC);
+    }, $_[0]);
     return($class->destringify($tmp));
+}
+
+#
+# export control
+#
+
+sub import : method {
+    my($pkg, %exported);
+
+    $pkg = shift(@_);
+    %exported = ("_require" => 1);
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;

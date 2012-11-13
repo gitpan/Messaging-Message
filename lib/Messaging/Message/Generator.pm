@@ -13,17 +13,19 @@
 package Messaging::Message::Generator;
 use strict;
 use warnings;
-our $VERSION  = "1.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.8 $ =~ /(\d+)\.(\d+)/);
+use 5.005; # need the four-argument form of substr()
+our $VERSION  = "1.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use Digest::MD5 qw();
-use Encode qw();
-use Messaging::Message qw(_fatal);
+use Encode qw(decode FB_CROAK);
+use Messaging::Message qw();
 use MIME::Base64 qw(decode_base64 encode_base64);
+use No::Worries::Die qw(dief);
 use Params::Validate qw(validate :types);
 
 #
@@ -31,8 +33,8 @@ use Params::Validate qw(validate :types);
 #
 
 our(
-    $_MD5,			# the MD5 digester object
-    $_UnicodeString,		# string with Unicode characters
+    $_MD5,                       # the MD5 digester object
+    $_UnicodeString,             # string with Unicode characters
 );
 
 #
@@ -43,7 +45,7 @@ sub _init () {
     $_MD5 = Digest::MD5->new();
     $_MD5->add($$ . "-" . time());
     # http://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-demo.txt
-    $_UnicodeString = decode_base64(<<EOT);
+    $_UnicodeString = decode_base64(<<'EOT');
 ClVURi04IGVuY29kZWQgc2FtcGxlIHBsYWluLXRleHQgZmlsZQrigL7igL7igL7igL7igL7igL7i
 gL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL7i
 gL7igL7igL7igL7igL7igL7igL7igL7igL7igL7igL4KCk1hcmt1cyBLdWhuIFvLiG1hyrNryopz
@@ -292,10 +294,10 @@ lZDilZDilanilZDilZDilZ0gIOKUlOKUgOKUgOKUtOKUgOKUgOKUmCAg4pWw4pSA4pSA4pS04pSA
 loLiloPiloTiloXilobilofilogKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
 ICAgICAgICAgICDilp3iloDilpjilpniloTilp8K
 EOT
-    _fatal("corrupted inlined UTF-8 string: %d", length($_UnicodeString))
+    dief("corrupted inlined UTF-8 string: %d", length($_UnicodeString))
         unless length($_UnicodeString) == 14052;
-    $_UnicodeString = Encode::decode("UTF-8", $_UnicodeString, Encode::FB_CROAK);
-    _fatal("corrupted inlined Unicode string: %d", length($_UnicodeString))
+    $_UnicodeString = decode("UTF-8", $_UnicodeString, FB_CROAK);
+    dief("corrupted inlined Unicode string: %d", length($_UnicodeString))
         unless length($_UnicodeString) == 7621;
 }
 
@@ -305,17 +307,18 @@ EOT
 
 sub _rndbin ($) {
     my($length) = @_;
-    my($string, $digest);
+    my($string, $digest, $extra);
 
     return(\ "") unless $length > 0;
     $_MD5->add(rand());
     $string = "";
     while (length($string) < $length) {
-	$digest = $_MD5->digest();
-	$_MD5->add($digest);
-	$string .= $digest;
+        $digest = $_MD5->digest();
+        $_MD5->add($digest);
+        $string .= $digest;
     }
-    substr($string, $length) = "";
+    $extra = length($string) - $length;
+    substr($string, $length, $extra, "") if $extra > 0;
     return(\$string);
 }
 
@@ -325,19 +328,21 @@ sub _rndbin ($) {
 
 sub _rnduni ($) {
     my($length) = @_;
-    my($string, $digest, $n);
+    my($string, $digest, $extra);
 
     return(\ "") unless $length > 0;
     $_MD5->add(rand());
     $string = "";
     while (length($string) < $length) {
-	$digest = $_MD5->digest();
-	$_MD5->add($digest);
-	foreach $n (unpack("n8", $digest)) {
-	    $string .= substr($_UnicodeString, int(($n >> 6) * 7.3), ($n & 63) + 1);
-	}
+        $digest = $_MD5->digest();
+        $_MD5->add($digest);
+        foreach my $n (unpack("n8", $digest)) {
+            $string .= substr($_UnicodeString,
+                              int(($n >> 6) * 7.3), ($n & 63) + 1);
+        }
     }
-    substr($string, $length) = "";
+    $extra = length($string) - $length;
+    substr($string, $length, $extra, "") if $extra > 0;
     return(\$string);
 }
 
@@ -349,15 +354,17 @@ sub _rndint ($) {
     my($spec) = @_;
     my($rnd);
 
-    return($1) if $spec =~ /^(\d+)$/;
-    return($1 + int(rand($2 - $1 + 1))) if $spec =~ /^(\d+)-(\d+)$/;
-    if ($spec =~ /^(\d+)\^(\d+)$/) {
-	# see Irwin-Hall in http://en.wikipedia.org/wiki/Normal_distribution
-	$rnd = rand(1) + rand(1) + rand(1) + rand(1) + rand(1) + rand(1) +
-	       rand(1) + rand(1) + rand(1) + rand(1) + rand(1) + rand(1);
-	return($1 + int($rnd * ($2 - $1 + 1) / 12));
+    if ($spec =~ /^(\d+)$/) {
+        return($1);
+    } elsif ($spec =~ /^(\d+)-(\d+)$/) {
+        return($1 + int(rand($2 - $1 + 1)));
+    } elsif ($spec =~ /^(\d+)\^(\d+)$/) {
+        # see Irwin-Hall in http://en.wikipedia.org/wiki/Normal_distribution
+        $rnd = rand(1) + rand(1) + rand(1) + rand(1) + rand(1) + rand(1) +
+               rand(1) + rand(1) + rand(1) + rand(1) + rand(1) + rand(1);
+        return($1 + int($rnd * ($2 - $1 + 1) / 12));
     }
-    _fatal("unsupported random integer specification: %s", $spec);
+    dief("unsupported random integer specification: %s", $spec);
 }
 
 #
@@ -366,24 +373,26 @@ sub _rndint ($) {
 
 sub _rndstr ($$$) {
     my($text, $length, $entropy) = @_;
-    my($string, $tmp);
+    my($string, $extra, $tmp);
 
     return(\ "") unless $length > 0;
     if ($entropy == 0) {
-	$tmp = chr(65 + int(rand(26)));
-	$string = $tmp x $length;
+        $tmp = chr(65 + int(rand(26)));
+        $string = $tmp x $length;
     } elsif ($entropy == 1) {
-	$string = unpack("h*", ${ _rndbin(int($length / 2 + 0.5)) });
-	substr($string, $length) = "";
+        $string = unpack("h*", ${ _rndbin(int($length / 2 + 0.5)) });
+        $extra = length($string) - $length;
+        substr($string, $length, $extra, "") if $extra > 0;
     } elsif ($entropy == 2) {
-	$string = encode_base64(${ _rndbin(int($length * 0.75 + 1)) }, "");
-	$string =~ tr{/}{-};
-	substr($string, $length) = "";
+        $string = encode_base64(${ _rndbin(int($length * 0.75 + 1)) }, "");
+        $string =~ tr{/+}{-_};
+        $extra = length($string) - $length;
+        substr($string, $length, $extra, "") if $extra > 0;
     } elsif ($entropy == 3) {
-	$string = pack("c*", map(32 + int(rand(95)), 1 .. $length));
+        $string = pack("c*", map(32 + int(rand(95)), 1 .. $length));
     } else {
-	# directly return the reference!
-	return($text ? _rnduni($length) : _rndbin($length));
+        # directly return the reference!
+        return($text ? _rnduni($length) : _rndbin($length));
     }
     return(\$string);
 }
@@ -392,19 +401,20 @@ sub _rndstr ($$$) {
 # constructor
 #
 
-my $intre = "(\\d+[\\-\\^])?\\d+"; # random integer regexp
+my $optional_scalar = { optional => 1, type => SCALAR };
+my $optional_rndint = { %{ $optional_scalar }, regex => qr/^(\d+[\-\^])?\d+$/ };
 
 my %new_options = (
-    "text"                 => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
-    "body-length"          => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
-    "body-entropy"         => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
-    "header-count"         => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
-    "header-name-prefix"   => { optional => 1, type => SCALAR },
-    "header-name-length"   => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
-    "header-name-entropy"  => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
-    "header-value-prefix"  => { optional => 1, type => SCALAR },
-    "header-value-length"  => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
-    "header-value-entropy" => { optional => 1, type => SCALAR, regex => qr/^${intre}$/ },
+    "text"                 => $optional_rndint,
+    "body-length"          => $optional_rndint,
+    "body-entropy"         => $optional_rndint,
+    "header-count"         => $optional_rndint,
+    "header-name-prefix"   => $optional_scalar,
+    "header-name-length"   => $optional_rndint,
+    "header-name-entropy"  => $optional_rndint,
+    "header-value-prefix"  => $optional_scalar,
+    "header-value-length"  => $optional_rndint,
+    "header-value-entropy" => $optional_rndint,
 );
 
 sub new : method {
@@ -412,8 +422,10 @@ sub new : method {
 
     $class = shift(@_);
     %option = validate(@_, \%new_options) if @_;
-    $option{"header-name-prefix"} = "" unless defined($option{"header-name-prefix"});
-    $option{"header-value-prefix"} = "" unless defined($option{"header-value-prefix"});
+    $option{"header-name-prefix"} = ""
+        unless defined($option{"header-name-prefix"});
+    $option{"header-value-prefix"} = ""
+        unless defined($option{"header-value-prefix"});
     $self = \%option;
     _init() unless $_MD5;
     bless($self, $class);
@@ -433,26 +445,26 @@ sub message : method {
     $option{text} = $tmp ? 1 : 0;
     # generate body
     $option{body_ref} = _rndstr($option{text},
-	_rndint($self->{"body-length"}  || 0),
-	_rndint($self->{"body-entropy"} || 0));
+        _rndint($self->{"body-length"}  || 0),
+        _rndint($self->{"body-entropy"} || 0));
     # generate header
     $tmp = _rndint($self->{"header-count"} || 0);
     if ($tmp) {
-	$option{header} = {};
-	foreach (1 .. $tmp) {
-	    # generate header name
-	    $name = _rndstr(1,
-		_rndint($self->{"header-name-length"}  || 0),
-		_rndint($self->{"header-name-entropy"} || 0));
-	    $name = $self->{"header-name-prefix"} . $$name;
-	    # generate header value
-	    $value = _rndstr(1,
-		_rndint($self->{"header-value-length"}  || 0),
-		_rndint($self->{"header-value-entropy"} || 0));
-	    $value = $self->{"header-value-prefix"} . $$value;
-	    # store it
-	    $option{header}{$name} = $value;
-	}
+        $option{header} = {};
+        while ($tmp-- > 0) {
+            # generate header name
+            $name = _rndstr(1,
+                _rndint($self->{"header-name-length"}  || 0),
+                _rndint($self->{"header-name-entropy"} || 0));
+            $name = $self->{"header-name-prefix"} . ${ $name };
+            # generate header value
+            $value = _rndstr(1,
+                _rndint($self->{"header-value-length"}  || 0),
+                _rndint($self->{"header-value-entropy"} || 0));
+            $value = $self->{"header-value-prefix"} . ${ $value };
+            # store it
+            $option{header}{$name} = $value;
+        }
     }
     return(Messaging::Message->new(%option));
 }
@@ -585,7 +597,7 @@ All the I<entropy> options interpret their integer value this way:
 
 =item * C<1> means hexadecimal characters
 
-=item * C<2> means Base64 characters (with C<-> instead of C</>)
+=item * C<2> means Base64 characters (with C<-> instead of C</> and C<_> instead od C<+>)
 
 =item * C<3> means printable 7-bit ASCII characters
 
