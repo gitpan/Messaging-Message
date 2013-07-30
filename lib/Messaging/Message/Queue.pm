@@ -13,8 +13,8 @@
 package Messaging::Message::Queue;
 use strict;
 use warnings;
-our $VERSION  = "1.4";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.4_1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.7 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -89,4 +89,4 @@ L<Messaging::Message::Queue::NULL>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2011-2012
+Copyright (C) CERN 2011-2013

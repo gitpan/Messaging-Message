@@ -11,16 +11,14 @@ use Test::More tests => 23;
 our($tmpdir, $binstr, $unistr);
 
 sub test_m ($$) {
-    my($mq, $msg) = @_;
-    my($str1, $str2, $elt);
+    my($mq, $msg1) = @_;
+    my($elt, $msg2);
 
-    $str1 = $msg->serialize();
-    $elt = $mq->add_message($msg);
+    $elt = $mq->add_message($msg1);
     $mq->lock($elt);
-    $msg = $mq->get_message($elt);
+    $msg2 = $mq->get_message($elt);
     $mq->unlock($elt);
-    $str2 = $msg->serialize();
-    is($str1, $str2, "add+get");
+    is_deeply($msg1, $msg2, "add+get");
 }
 
 sub test_q ($) {

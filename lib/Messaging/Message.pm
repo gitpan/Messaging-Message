@@ -13,8 +13,8 @@
 package Messaging::Message;
 use strict;
 use warnings;
-our $VERSION  = "1.4";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.23 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.4_1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.25 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -619,9 +619,13 @@ Messaging::Message - abstraction of a message
 
 =head1 DESCRIPTION
 
-This module provides an abstraction of a "message", as used in
-messaging, see for instance:
+This module provides an abstraction of a "message", as used in messaging,
+see for instance:
 L<http://en.wikipedia.org/wiki/Enterprise_messaging_system>.
+
+A Python implementation of the same messaging abstractions is available at
+L<https://github.com/cern-mig/python-messaging> so messaging components can
+be written in different programming languages.
 
 A message consists of header fields (collectively called "the header
 of the message") and a body.
@@ -941,4 +945,4 @@ L<JSON>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2011-2012
+Copyright (C) CERN 2011-2013

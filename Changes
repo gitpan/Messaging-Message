@@ -1,5 +1,8 @@
 Revision history for Messaging-Message:
 
+???	???
+	* Improved message queue testing (RT#87341).
+
 1.4	Tue Nov 13 2012
 	* Now using No::Worries.
 	* Cleanup code to please Perl::Critic.

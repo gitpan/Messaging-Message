@@ -1,16 +1,15 @@
 Messaging-Message
 
-Messaging-Message is a set of Perl modules useful to deal with
-"messages", as used in messaging, see for instance:
+Messaging-Message is a set of Perl modules useful to deal with "messages",
+as used in messaging, see for instance:
 http://en.wikipedia.org/wiki/Enterprise_messaging_system.
 
-The modules include a transport independent message abstraction, a
-versatile message generator and several message queues/spools to
-locally store messages.
+The modules include a transport independent message abstraction, a versatile
+message generator and several message queues/spools to locally store messages.
 
-A Python implementation of the same messaging abstractions is
-available at http://pypi.python.org/pypi/messaging/ so messaging
-components can be written in different programming languages.
+A Python implementation of the same messaging abstractions is available at
+https://github.com/cern-mig/python-messaging so messaging components can be
+written in different programming languages.
 
 INSTALLATION
 
@@ -46,7 +45,7 @@ perldoc command.
 
 LICENSE AND COPYRIGHT
 
-Copyright (C) 2011-2012 CERN
+Copyright (C) CERN 2011-2013
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
