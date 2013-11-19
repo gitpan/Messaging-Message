@@ -13,7 +13,7 @@
 package Messaging::Message::Queue;
 use strict;
 use warnings;
-our $VERSION  = "1.4_1";
+our $VERSION  = "1.5";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.7 $ =~ /(\d+)\.(\d+)/);
 
 #

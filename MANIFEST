@@ -4,6 +4,7 @@ META.yml			Module meta-data (added by MakeMaker)
 Makefile.PL
 README
 VERSION
+eg/mqgen.pl
 lib/Messaging/Message.pm
 lib/Messaging/Message/Generator.pm
 lib/Messaging/Message/Queue.pm

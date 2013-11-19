@@ -1,6 +1,7 @@
 Revision history for Messaging-Message:
 
-???	???
+1.5	Tue Nov 19 2013
+	* Added an example message generator program: eg/mqgen.pl.
 	* Improved message queue testing (RT#87341).
 
 1.4	Tue Nov 13 2012

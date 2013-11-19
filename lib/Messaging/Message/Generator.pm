@@ -14,7 +14,7 @@ package Messaging::Message::Generator;
 use strict;
 use warnings;
 use 5.005; # need the four-argument form of substr()
-our $VERSION  = "1.4_1";
+our $VERSION  = "1.5";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.13 $ =~ /(\d+)\.(\d+)/);
 
 #
